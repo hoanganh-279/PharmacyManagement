@@ -42,8 +42,10 @@ public partial class FrmMain : Form
     private Panel _contentHost;
 
     private readonly Dictionary<string, Button> _navButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, FlowLayoutPanel> _submenuPanels = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _pageTitles = new(StringComparer.Ordinal);
     private string _activeNav = "";
+    private string _expandedParentKey;
 
     private string _avatarInitials = "";
     private string _roleBadge = "";
@@ -53,24 +55,39 @@ public partial class FrmMain : Form
 
     public bool ReLoginRequested { get; private set; }
 
-    private static readonly NavDef[] NavDefs =
+    /// <summary>
+    /// Cây menu sidebar: mục có <see cref="NavTopDef.Children"/> khác null là nhóm mẹ–con (bấm mẹ mở danh sách con).
+    /// </summary>
+    private static readonly NavTopDef[] NavTopology =
     [
-        new("dash", "Dashboard", [VaiTroTen.Admin, VaiTroTen.QuanLy]),
-        new("kho", "Quản lý kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
-        new("hang", "Thêm hàng hóa", [VaiTroTen.Admin, VaiTroTen.NhanVienKho]),
-        new("kedon", "Kê đơn bán thuốc", [VaiTroTen.DuocSi]),
-        new("doanhthu", "Quản lý doanh thu", [VaiTroTen.Admin, VaiTroTen.QuanLy]),
-        new("nv", "Quản lý nhân viên", [VaiTroTen.Admin]),
-        new("bc_canh", "Cảnh báo tồn / hạn", []),
-        new("bc_thuoc", "Báo cáo thuốc", [VaiTroTen.Admin, VaiTroTen.QuanLy]),
-        new("audit", "Audit log", [VaiTroTen.Admin, VaiTroTen.QuanLy]),
+        new("dash", "Dashboard", [VaiTroTen.Admin, VaiTroTen.QuanLy], null),
+        new("kho", "Quản lý kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho],
+        [
+            new("kho_phieu", "Thông tin phiếu nhập kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
+            new("kho_ds", "Danh sách hàng nhập kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
+        ]),
+        new("hang", "Thêm hàng hóa", [VaiTroTen.Admin, VaiTroTen.NhanVienKho], null),
+        new("kedon", "Kê đơn bán thuốc", [VaiTroTen.DuocSi], null),
+        new("doanhthu", "Quản lý doanh thu", [VaiTroTen.Admin, VaiTroTen.QuanLy], null),
+        new("nv", "Quản lý nhân viên", [VaiTroTen.Admin], null),
+        new("bc", "Báo cáo", [], [
+            new("bc_canh", "Cảnh báo tồn / hạn", []),
+            new("bc_thuoc", "Báo cáo thuốc", [VaiTroTen.Admin, VaiTroTen.QuanLy]),
+        ], true),
+        new("audit", "Audit log", [VaiTroTen.Admin, VaiTroTen.QuanLy], null),
     ];
 
     public FrmMain()
     {
         InitializeComponent();
-        foreach (var d in NavDefs)
-            _pageTitles[d.Key] = d.Text;
+        foreach (var top in NavTopology)
+        {
+            _pageTitles[top.Key] = top.Text;
+            if (top.Children is null)
+                continue;
+            foreach (var ch in top.Children)
+                _pageTitles[ch.Key] = ch.Text;
+        }
         BuildLayout();
         WireChrome();
         SetDoubleBufferedRecursive(this);
@@ -100,19 +117,12 @@ public partial class FrmMain : Form
 
     public bool IsNavKeyVisible(string key)
     {
-        var role = UserSession.TenVaiTro;
-        foreach (var d in NavDefs)
-        {
-            if (!string.Equals(d.Key, key, StringComparison.Ordinal))
-                continue;
-            return d.AllowedRoles.Length == 0
-                   || (role is not null && d.AllowedRoles.Contains(role, StringComparer.Ordinal));
-        }
-        return false;
+        return _navButtons.TryGetValue(key, out var b) && b.Visible;
     }
 
     public void HighlightNavWithoutHostChange(string key)
     {
+        EnsureSubmenuExpandedForKey(key);
         HighlightNav(key);
         if (_pageTitles.TryGetValue(key, out var t))
             _lblPageTitle.Text = t;
@@ -144,25 +154,56 @@ public partial class FrmMain : Form
 
     private string FirstVisibleNavKey()
     {
-        foreach (var d in NavDefs)
+        foreach (var top in NavTopology)
         {
-            if (!_navButtons.TryGetValue(d.Key, out var b) || !b.Visible)
+            if (!_navButtons.TryGetValue(top.Key, out var b) || !b.Visible)
                 continue;
-            return d.Key;
+            return top.Key;
         }
         return null;
+    }
+
+    private static bool IsRoleAllowed(string[] allowedRoles, string role)
+    {
+        if (allowedRoles.Length == 0)
+            return true;
+        return role is not null && allowedRoles.Contains(role, StringComparer.Ordinal);
     }
 
     private void ApplyNavVisibility()
     {
         var role = UserSession.TenVaiTro;
-        foreach (var def in NavDefs)
+        foreach (var top in NavTopology)
         {
-            if (!_navButtons.TryGetValue(def.Key, out var btn))
+            if (!_navButtons.TryGetValue(top.Key, out var parentBtn))
                 continue;
-            btn.Visible = def.AllowedRoles.Length == 0
-                          || (role is not null && def.AllowedRoles.Contains(role, StringComparer.Ordinal));
+
+            if (top.Children is null || top.Children.Length == 0)
+            {
+                parentBtn.Visible = IsRoleAllowed(top.AllowedRolesForParent, role);
+                continue;
+            }
+
+            var anyChild = false;
+            foreach (var ch in top.Children)
+            {
+                if (!_navButtons.TryGetValue(ch.Key, out var chBtn))
+                    continue;
+                var ok = IsRoleAllowed(ch.AllowedRoles, role);
+                chBtn.Visible = ok;
+                if (ok)
+                    anyChild = true;
+            }
+
+            if (top.ParentVisibleIfAnyChild)
+                parentBtn.Visible = anyChild;
+            else
+                parentBtn.Visible = IsRoleAllowed(top.AllowedRolesForParent, role) && anyChild;
         }
+
+        if (_expandedParentKey is not null
+            && (!_navButtons.TryGetValue(_expandedParentKey, out var ep) || !ep.Visible))
+            SetExpandedParent(null);
     }
 
     private void HighlightNav(string key)
@@ -269,12 +310,7 @@ public partial class FrmMain : Form
             BackColor = SidebarBg
         };
         _navFlow.Controls.Add(new Panel { Height = 4, Width = 240, Margin = new Padding(0) });
-        foreach (var def in NavDefs)
-        {
-            var b = CreateNavButton(def.Text, def.Key);
-            _navFlow.Controls.Add(b);
-            _navButtons[def.Key] = b;
-        }
+        BuildSidebarNav();
 
         _sidebar.Controls.Add(_navFlow);
         _sidebar.Controls.Add(_sidebarFooter);
@@ -332,24 +368,153 @@ public partial class FrmMain : Form
         _workspace.Controls.Add(_header);
     }
 
-    private Button CreateNavButton(string text, string key)
+    private void BuildSidebarNav()
+    {
+        foreach (var top in NavTopology)
+        {
+            if (top.Children is null || top.Children.Length == 0)
+            {
+                var leaf = CreateLeafNavButton(top.Text, top.Key);
+                _navFlow.Controls.Add(leaf);
+                _navButtons[top.Key] = leaf;
+                continue;
+            }
+
+            var wrap = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Width = 240,
+                Margin = new Padding(4, 2, 4, 2),
+                Padding = Padding.Empty,
+                BackColor = SidebarBg
+            };
+            var parentBtn = CreateParentNavButton(top.Text, top.Key);
+
+            var sub = new FlowLayoutPanel
+            {
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                Width = 228,
+                Padding = new Padding(18, 0, 0, 4),
+                Visible = false,
+                Margin = Padding.Empty,
+                BackColor = SidebarBg
+            };
+            foreach (var ch in top.Children)
+            {
+                var cb = CreateChildNavButton(ch.Text, ch.Key);
+                sub.Controls.Add(cb);
+                _navButtons[ch.Key] = cb;
+            }
+
+            _submenuPanels[top.Key] = sub;
+            wrap.Controls.Add(parentBtn);
+            wrap.Controls.Add(sub);
+            _navFlow.Controls.Add(wrap);
+            _navButtons[top.Key] = parentBtn;
+        }
+    }
+
+    private Button CreateLeafNavButton(string text, string key)
+    {
+        var b = CreateNavButtonChrome("  " + text, height: 42, width: 232, fontSize: 10F);
+        b.Margin = new Padding(4, 2, 4, 2);
+        b.Click += (_, _) => SelectNav(key);
+        return b;
+    }
+
+    private Button CreateParentNavButton(string text, string key)
+    {
+        var b = CreateNavButtonChrome("  " + text, height: 42, width: 232, fontSize: 10F);
+        b.Margin = Padding.Empty;
+        b.Click += (_, _) => OnParentNavButtonClick(key);
+        return b;
+    }
+
+    private Button CreateChildNavButton(string text, string key)
+    {
+        var b = CreateNavButtonChrome("    " + text, height: 36, width: 200, fontSize: 9.75F);
+        b.Margin = new Padding(0, 1, 0, 1);
+        b.Click += (_, _) => SelectNav(key);
+        return b;
+    }
+
+    private Button CreateNavButtonChrome(string text, int height, int width, float fontSize)
     {
         var b = new Button
         {
-            Text = "  " + text,
+            Text = text,
             TextAlign = ContentAlignment.MiddleLeft,
-            Height = 42,
-            Width = 232,
+            Height = height,
+            Width = width,
             FlatStyle = FlatStyle.Flat,
-            Margin = new Padding(4, 2, 4, 2),
             Cursor = Cursors.Hand,
-            Font = new Font("Segoe UI", 10F),
+            Font = new Font("Segoe UI", fontSize),
             ForeColor = Ink,
             BackColor = Color.Transparent
         };
         b.FlatAppearance.BorderSize = 0;
-        b.Click += (_, _) => SelectNav(key);
         return b;
+    }
+
+    private static string FindParentKey(string navKey)
+    {
+        foreach (var top in NavTopology)
+        {
+            if (top.Children is null)
+                continue;
+            foreach (var ch in top.Children)
+            {
+                if (string.Equals(ch.Key, navKey, StringComparison.Ordinal))
+                    return top.Key;
+            }
+        }
+        return null;
+    }
+
+    private static bool IsParentWithChildren(string key)
+    {
+        foreach (var top in NavTopology)
+        {
+            if (!string.Equals(top.Key, key, StringComparison.Ordinal))
+                continue;
+            return top.Children is { Length: > 0 };
+        }
+        return false;
+    }
+
+    private void SetExpandedParent(string parentKey)
+    {
+        _expandedParentKey = parentKey;
+        foreach (var kv in _submenuPanels)
+            kv.Value.Visible = parentKey is not null
+                               && string.Equals(kv.Key, parentKey, StringComparison.Ordinal);
+    }
+
+    private void OnParentNavButtonClick(string parentKey)
+    {
+        if (!_navButtons.TryGetValue(parentKey, out var pb) || !pb.Visible)
+            return;
+
+        if (_expandedParentKey == parentKey)
+            SetExpandedParent(null);
+        else
+            SetExpandedParent(parentKey);
+    }
+
+    private void EnsureSubmenuExpandedForKey(string key)
+    {
+        if (FindParentKey(key) is { } p)
+            SetExpandedParent(p);
+        else if (IsParentWithChildren(key))
+            SetExpandedParent(key);
+        else
+            SetExpandedParent(null);
     }
 
     private void SelectNav(string key)
@@ -359,6 +524,13 @@ public partial class FrmMain : Form
             MessageBox.Show(this, "Bạn không có quyền truy cập mục này.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return;
         }
+
+        if (FindParentKey(key) is { } parentOfChild)
+            SetExpandedParent(parentOfChild);
+        else if (IsParentWithChildren(key))
+            SetExpandedParent(key);
+        else
+            SetExpandedParent(null);
 
         HighlightNav(key);
         _lblPageTitle.Text = _pageTitles.GetValueOrDefault(key, "—");
@@ -494,5 +666,8 @@ public partial class FrmMain : Form
             null, c, [true]);
     }
 
-    private sealed record NavDef(string Key, string Text, string[] AllowedRoles);
+    private sealed record NavChildDef(string Key, string Text, string[] AllowedRoles);
+
+    /// <param name="ParentVisibleIfAnyChild">True: nút mẹ chỉ cần có ít nhất một mục con được phép (nhóm Báo cáo).</param>
+    private sealed record NavTopDef(string Key, string Text, string[] AllowedRolesForParent, NavChildDef[] Children, bool ParentVisibleIfAnyChild = false);
 }
