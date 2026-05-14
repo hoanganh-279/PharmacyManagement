@@ -1,4 +1,10 @@
-﻿CREATE DATABASE PharmacyManagement;
+﻿/*
+  Thứ tự triển khai CSDL (khớp project_Context.md):
+  1) PharmacyManagement.sql — tạo DB, bảng, chỉ mục, thủ tục, dữ liệu mẫu
+  2) Trigger_PharmacyManagemnt.sql — cột bổ sung (nếu thiếu), trigger, migration trạng thái phiếu
+  3) View_PharmacyManagement.sql — view báo cáo / dashboard
+*/
+CREATE DATABASE PharmacyManagement;
 GO
 
 USE PharmacyManagement;
@@ -33,6 +39,36 @@ CREATE TABLE NhomThuoc (
     TrangThai BIT NOT NULL DEFAULT 1
 );
 
+CREATE TABLE Kho (
+    MaKho INT IDENTITY(1,1) PRIMARY KEY,
+    TenKho NVARCHAR(100) NOT NULL,
+    DiaChi NVARCHAR(255),
+    TrangThai BIT DEFAULT 1
+);
+
+CREATE TABLE NhaCungCap (
+    MaNhaCungCap INT IDENTITY(1,1) PRIMARY KEY,
+    TenNhaCungCap NVARCHAR(150) NOT NULL,
+    SoDienThoai VARCHAR(15),
+    DiaChi NVARCHAR(255),
+    TrangThai BIT DEFAULT 1
+);
+
+CREATE TABLE DanhMucDQG (
+    MaDQG INT IDENTITY(1,1) PRIMARY KEY,
+    MaDQGDonVi VARCHAR(50),
+    TenHangHoa NVARCHAR(150) NOT NULL,
+    SoDangKy VARCHAR(50),
+    HoatChatChinh NVARCHAR(255),
+    HoatChatDangKy NVARCHAR(255),
+    HamLuong NVARCHAR(100),
+    DongGoi NVARCHAR(150),
+    HangSanXuat NVARCHAR(150),
+    NuocSanXuat NVARCHAR(100),
+    DonViTinh NVARCHAR(30),
+    TrangThai BIT DEFAULT 1
+);
+
 CREATE TABLE Thuoc (
     MaThuoc INT IDENTITY(1,1) PRIMARY KEY,
     TenThuoc NVARCHAR(150) NOT NULL,
@@ -45,11 +81,19 @@ CREATE TABLE Thuoc (
     TonToiThieu INT NOT NULL DEFAULT 0,
     HanSuDung DATE NULL,
     MaNhomThuoc INT NOT NULL,
+    MaDQG INT NULL,
+    SoDangKy VARCHAR(50) NULL,
+    HangSanXuat NVARCHAR(150) NULL,
+    NuocSanXuat NVARCHAR(100) NULL,
+    DongGoi NVARCHAR(150) NULL,
     TrangThai BIT NOT NULL DEFAULT 1,
     NgayTao DATETIME NOT NULL DEFAULT GETDATE(),
 
     CONSTRAINT FK_Thuoc_NhomThuoc 
     FOREIGN KEY (MaNhomThuoc) REFERENCES NhomThuoc(MaNhomThuoc),
+
+    CONSTRAINT FK_Thuoc_DanhMucDQG
+    FOREIGN KEY (MaDQG) REFERENCES DanhMucDQG(MaDQG),
 
     CONSTRAINT CK_Thuoc_GiaNhap CHECK (GiaNhap >= 0),
     CONSTRAINT CK_Thuoc_GiaBan CHECK (GiaBan >= 0),
@@ -61,12 +105,29 @@ CREATE TABLE PhieuNhap (
     MaPhieuNhap INT IDENTITY(1,1) PRIMARY KEY,
     NgayNhap DATETIME NOT NULL DEFAULT GETDATE(),
     MaNhanVien INT NOT NULL,
-    NhaCungCap NVARCHAR(150),
     TongTien DECIMAL(18,2) NOT NULL DEFAULT 0,
     GhiChu NVARCHAR(255),
+    SoHoaDon VARCHAR(50) NULL,
+    NgayHoaDon DATE NULL,
+    LoaiPhieuNhap NVARCHAR(50) NULL,
+    MaKho INT NULL,
+    MaNhaCungCap INT NULL,
+    PhuongTienVanChuyen NVARCHAR(100) NULL,
+    DonViVanChuyen NVARCHAR(150) NULL,
+    NguoiGiaoHang NVARCHAR(100) NULL,
+    VAT DECIMAL(5,2) DEFAULT 0,
+    ChietKhau DECIMAL(18,2) DEFAULT 0,
+    CongNo DECIMAL(18,2) DEFAULT 0,
+    TrangThai NVARCHAR(30) DEFAULT N'Đang lập',
 
     CONSTRAINT FK_PhieuNhap_NhanVien 
     FOREIGN KEY (MaNhanVien) REFERENCES NhanVien(MaNhanVien),
+
+    CONSTRAINT FK_PhieuNhap_Kho
+    FOREIGN KEY (MaKho) REFERENCES Kho(MaKho),
+
+    CONSTRAINT FK_PhieuNhap_NhaCungCap
+    FOREIGN KEY (MaNhaCungCap) REFERENCES NhaCungCap(MaNhaCungCap),
 
     CONSTRAINT CK_PhieuNhap_TongTien CHECK (TongTien >= 0)
 );
@@ -79,6 +140,12 @@ CREATE TABLE ChiTietPhieuNhap (
     DonGiaNhap DECIMAL(18,2) NOT NULL,
     ThanhTien AS (SoLuongNhap * DonGiaNhap) PERSISTED,
     HanSuDung DATE NULL,
+    GiaBan DECIMAL(18,2) DEFAULT 0,
+    SoLo VARCHAR(50) NULL,
+    ViTri NVARCHAR(100) NULL,
+    GhiChu NVARCHAR(255) NULL,
+    /* VAT dòng (%): nếu NULL, áp dụng VAT % trên cột PhieuNhap.VAT khi tính CongNo */
+    VAT DECIMAL(5,2) NULL,
 
     CONSTRAINT FK_CTPN_PhieuNhap 
     FOREIGN KEY (MaPhieuNhap) REFERENCES PhieuNhap(MaPhieuNhap),
@@ -88,6 +155,27 @@ CREATE TABLE ChiTietPhieuNhap (
 
     CONSTRAINT CK_CTPN_SoLuongNhap CHECK (SoLuongNhap > 0),
     CONSTRAINT CK_CTPN_DonGiaNhap CHECK (DonGiaNhap >= 0)
+);
+
+CREATE TABLE LoThuoc (
+    MaLoThuoc INT IDENTITY(1,1) PRIMARY KEY,
+    MaThuoc INT NOT NULL,
+    MaKho INT NOT NULL,
+    SoLo VARCHAR(50) NOT NULL,
+    HanSuDung DATE NOT NULL,
+    SoLuongTon INT NOT NULL DEFAULT 0,
+    GiaNhap DECIMAL(18,2) NOT NULL DEFAULT 0,
+    GiaBan DECIMAL(18,2) NOT NULL DEFAULT 0,
+    ViTri NVARCHAR(100),
+    TrangThai BIT DEFAULT 1,
+
+    CONSTRAINT FK_LoThuoc_Thuoc
+    FOREIGN KEY (MaThuoc) REFERENCES Thuoc(MaThuoc),
+
+    CONSTRAINT FK_LoThuoc_Kho
+    FOREIGN KEY (MaKho) REFERENCES Kho(MaKho),
+
+    CONSTRAINT CK_LoThuoc_SoLuongTon CHECK (SoLuongTon >= 0)
 );
 
 CREATE TABLE HoaDon (
@@ -128,6 +216,20 @@ CREATE TABLE ChiTietHoaDon (
     CONSTRAINT CK_CTHD_DonGiaBan CHECK (DonGiaBan >= 0)
 );
 
+/* Phân bổ xuất bán theo lô (FEFO) — một dòng ChiTietHoaDon có thể tách nhiều lô */
+CREATE TABLE ChiTietHoaDon_PhanBoLo (
+    MaPhanBo INT IDENTITY(1,1) PRIMARY KEY,
+    MaCTHD INT NOT NULL,
+    MaLoThuoc INT NOT NULL,
+    SoLuongXuat INT NOT NULL,
+
+    CONSTRAINT FK_PhanBoLo_CTHD
+        FOREIGN KEY (MaCTHD) REFERENCES ChiTietHoaDon(MaCTHD) ON DELETE CASCADE,
+    CONSTRAINT FK_PhanBoLo_LoThuoc
+        FOREIGN KEY (MaLoThuoc) REFERENCES LoThuoc(MaLoThuoc),
+    CONSTRAINT CK_PhanBoLo_SoLuongXuat CHECK (SoLuongXuat > 0)
+);
+
 CREATE TABLE AuditLog (
     MaLog INT IDENTITY(1,1) PRIMARY KEY,
     ThoiGian DATETIME NOT NULL DEFAULT GETDATE(),
@@ -161,11 +263,26 @@ ON Thuoc(HanSuDung);
 CREATE INDEX IX_Thuoc_TonKho 
 ON Thuoc(SoLuongTon);
 
+CREATE INDEX IX_Thuoc_MaDQG
+ON Thuoc(MaDQG);
+
 CREATE INDEX IX_PhieuNhap_NgayNhap 
 ON PhieuNhap(NgayNhap);
 
 CREATE INDEX IX_PhieuNhap_MaNhanVien 
 ON PhieuNhap(MaNhanVien);
+
+CREATE INDEX IX_PhieuNhap_MaKho
+ON PhieuNhap(MaKho);
+
+CREATE INDEX IX_PhieuNhap_MaNhaCungCap
+ON PhieuNhap(MaNhaCungCap);
+
+CREATE INDEX IX_LoThuoc_MaThuoc
+ON LoThuoc(MaThuoc);
+
+CREATE INDEX IX_LoThuoc_MaKho
+ON LoThuoc(MaKho);
 
 CREATE INDEX IX_HoaDon_NgayLap 
 ON HoaDon(NgayLap);
@@ -175,6 +292,23 @@ ON HoaDon(MaNhanVien);
 
 CREATE INDEX IX_CTHD_MaThuoc 
 ON ChiTietHoaDon(MaThuoc);
+
+CREATE INDEX IX_CTPN_MaPhieuNhap
+ON ChiTietPhieuNhap(MaPhieuNhap);
+
+CREATE INDEX IX_PhieuNhap_TrangThai
+ON PhieuNhap(TrangThai);
+
+CREATE INDEX IX_LoThuoc_FEFO
+ON LoThuoc(MaThuoc, HanSuDung)
+INCLUDE (SoLuongTon, MaLoThuoc, MaKho)
+WHERE TrangThai = 1 AND SoLuongTon > 0;
+
+CREATE INDEX IX_PhanBoLo_MaCTHD
+ON ChiTietHoaDon_PhanBoLo(MaCTHD);
+
+CREATE INDEX IX_PhanBoLo_MaLoThuoc
+ON ChiTietHoaDon_PhanBoLo(MaLoThuoc);
 
 CREATE INDEX IX_AuditLog_ThoiGian 
 ON AuditLog(ThoiGian);
@@ -199,15 +333,19 @@ BEGIN
 END;
 GO
 
--- Procedure nhập kho có transaction
-CREATE PROCEDURE sp_NhapKho
+-- Procedure nhập kho: lập phiếu (Đang lập) -> chi tiết -> xác nhận Đã nhập kho (trigger cộng LoThuoc)
+CREATE OR ALTER PROCEDURE sp_NhapKho
     @MaNhanVien INT,
     @MaThuoc INT,
     @SoLuongNhap INT,
     @DonGiaNhap DECIMAL(18,2),
     @HanSuDung DATE,
-    @NhaCungCap NVARCHAR(150),
-    @GhiChu NVARCHAR(255)
+    @NhaCungCap NVARCHAR(150) = NULL,
+    @GhiChu NVARCHAR(255) = NULL,
+    @MaKho INT = NULL,
+    @SoLo NVARCHAR(50) = NULL,
+    @GiaBanDong DECIMAL(18,2) = NULL,
+    @ViTri NVARCHAR(100) = NULL
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -221,61 +359,88 @@ BEGIN
         IF @DonGiaNhap < 0
             THROW 50002, N'Đơn giá nhập không hợp lệ.', 1;
 
-        IF @HanSuDung IS NOT NULL AND @HanSuDung <= CAST(GETDATE() AS DATE)
-            THROW 50003, N'Hạn sử dụng phải lớn hơn ngày hiện tại.', 1;
+        IF @HanSuDung IS NULL
+            THROW 50003, N'Hạn sử dụng bắt buộc khi nhập kho theo lô.', 1;
+
+        IF @HanSuDung <= CAST(GETDATE() AS DATE)
+            THROW 50004, N'Hạn sử dụng phải lớn hơn ngày hiện tại.', 1;
+
+        IF NOT EXISTS (SELECT 1 FROM Thuoc WHERE MaThuoc = @MaThuoc AND TrangThai = 1)
+            THROW 50005, N'Thuốc không tồn tại hoặc đã ngừng kinh doanh.', 1;
+
+        IF @MaKho IS NULL
+            SELECT TOP (1) @MaKho = MaKho FROM Kho WHERE ISNULL(TrangThai, 1) = 1 ORDER BY MaKho;
+
+        IF @MaKho IS NULL OR NOT EXISTS (SELECT 1 FROM Kho WHERE MaKho = @MaKho)
+            THROW 50006, N'Chưa có kho hợp lệ (MaKho).', 1;
+
+        IF NULLIF(LTRIM(RTRIM(@SoLo)), N'') IS NULL
+            SET @SoLo = CONCAT(N'NK-AUTO-', CONVERT(VARCHAR(8), GETDATE(), 112), N'-', ABS(CHECKSUM(NEWID())) % 1000000);
 
         DECLARE @MaPhieuNhap INT;
+        DECLARE @MaNhaCungCap INT = NULL;
+        DECLARE @GiaBanThuoc DECIMAL(18,2);
 
-        INSERT INTO PhieuNhap(MaNhanVien, NhaCungCap, GhiChu)
-        VALUES (@MaNhanVien, @NhaCungCap, @GhiChu);
+        IF NULLIF(LTRIM(RTRIM(@NhaCungCap)), N'') IS NOT NULL
+        BEGIN
+            SELECT @MaNhaCungCap = MaNhaCungCap
+            FROM NhaCungCap
+            WHERE TenNhaCungCap = @NhaCungCap;
+
+            IF @MaNhaCungCap IS NULL
+            BEGIN
+                INSERT INTO NhaCungCap (TenNhaCungCap)
+                VALUES (@NhaCungCap);
+                SET @MaNhaCungCap = SCOPE_IDENTITY();
+            END
+        END
+
+        SELECT @GiaBanThuoc = ISNULL(@GiaBanDong, GiaBan) FROM Thuoc WHERE MaThuoc = @MaThuoc;
+
+        INSERT INTO PhieuNhap (MaNhanVien, MaNhaCungCap, MaKho, GhiChu, TrangThai)
+        VALUES (@MaNhanVien, @MaNhaCungCap, @MaKho, @GhiChu, N'Đang lập');
 
         SET @MaPhieuNhap = SCOPE_IDENTITY();
 
-        INSERT INTO ChiTietPhieuNhap(
-            MaPhieuNhap, 
-            MaThuoc, 
-            SoLuongNhap, 
-            DonGiaNhap, 
-            HanSuDung
+        INSERT INTO ChiTietPhieuNhap (
+            MaPhieuNhap,
+            MaThuoc,
+            SoLuongNhap,
+            DonGiaNhap,
+            HanSuDung,
+            GiaBan,
+            SoLo,
+            ViTri
         )
         VALUES (
-            @MaPhieuNhap, 
-            @MaThuoc, 
-            @SoLuongNhap, 
-            @DonGiaNhap, 
-            @HanSuDung
+            @MaPhieuNhap,
+            @MaThuoc,
+            @SoLuongNhap,
+            @DonGiaNhap,
+            @HanSuDung,
+            ISNULL(@GiaBanThuoc, 0),
+            @SoLo,
+            @ViTri
         );
 
-        UPDATE Thuoc
-        SET 
-            SoLuongTon = SoLuongTon + @SoLuongNhap,
-            GiaNhap = @DonGiaNhap,
-            HanSuDung = @HanSuDung
-        WHERE MaThuoc = @MaThuoc;
-
-        INSERT INTO AuditLog(MaNhanVien, HanhDong, TenBang, MaBanGhi, NoiDung)
-        VALUES (
-            @MaNhanVien,
-            N'Nhập kho',
-            N'PhieuNhap',
-            CAST(@MaPhieuNhap AS NVARCHAR(50)),
-            N'Nhập thuốc mã ' + CAST(@MaThuoc AS NVARCHAR(50)) 
-            + N', số lượng ' + CAST(@SoLuongNhap AS NVARCHAR(50))
-        );
+        /* Trigger trg_NhapKho_KhiHoanTat cộng LoThuoc + đồng bộ Thuoc; trg_UpdateTongTienPhieuNhap cập nhật tổng */
+        UPDATE PhieuNhap
+        SET TrangThai = N'Đã nhập kho'
+        WHERE MaPhieuNhap = @MaPhieuNhap;
 
         COMMIT;
 
         SELECT @MaPhieuNhap AS MaPhieuNhap;
     END TRY
     BEGIN CATCH
-        ROLLBACK;
+        IF @@TRANCOUNT > 0 ROLLBACK;
         THROW;
     END CATCH
 END;
 GO
 
 -- Procedure bán thuốc có transaction
-CREATE PROCEDURE sp_BanThuoc
+CREATE OR ALTER PROCEDURE sp_BanThuoc
     @MaNhanVien INT,
     @MaThuoc INT,
     @SoLuongBan INT,
@@ -296,26 +461,26 @@ BEGIN
         IF @GiamGia < 0
             THROW 51002, N'Giảm giá không hợp lệ.', 1;
 
-        DECLARE @SoLuongTon INT;
         DECLARE @GiaBan DECIMAL(18,2);
-        DECLARE @HanSuDung DATE;
+        DECLARE @TonLoHopLe INT;
 
-        SELECT 
-            @SoLuongTon = SoLuongTon,
-            @GiaBan = GiaBan,
-            @HanSuDung = HanSuDung
+        SELECT @GiaBan = GiaBan
         FROM Thuoc
         WHERE MaThuoc = @MaThuoc
           AND TrangThai = 1;
 
-        IF @SoLuongTon IS NULL
-            THROW 51003, N'Thuốc không tồn tại.', 1;
+        IF @GiaBan IS NULL
+            THROW 51003, N'Thuốc không tồn tại hoặc đã ngừng kinh doanh.', 1;
 
-        IF @HanSuDung IS NOT NULL AND @HanSuDung < CAST(GETDATE() AS DATE)
-            THROW 51004, N'Thuốc đã hết hạn, không được bán.', 1;
+        SELECT @TonLoHopLe = ISNULL(SUM(SoLuongTon), 0)
+        FROM LoThuoc
+        WHERE MaThuoc = @MaThuoc
+          AND SoLuongTon > 0
+          AND HanSuDung >= CAST(GETDATE() AS DATE)
+          AND ISNULL(TrangThai, 1) = 1;
 
-        IF @SoLuongTon < @SoLuongBan
-            THROW 51005, N'Không đủ tồn kho để bán.', 1;
+        IF @TonLoHopLe < @SoLuongBan
+            THROW 51005, N'Không đủ tồn kho theo lô (còn hạn) để bán.', 1;
 
         DECLARE @MaHoaDon INT;
         DECLARE @TongTien DECIMAL(18,2);
@@ -363,9 +528,7 @@ BEGIN
             @GiaBan
         );
 
-        UPDATE Thuoc
-        SET SoLuongTon = SoLuongTon - @SoLuongBan
-        WHERE MaThuoc = @MaThuoc;
+        /* Tồn theo lô: INSTEAD OF + AFTER trigger trên ChiTietHoaDon (FEFO) */
 
         INSERT INTO AuditLog(MaNhanVien, HanhDong, TenBang, MaBanGhi, NoiDung)
         VALUES (
@@ -382,7 +545,7 @@ BEGIN
         SELECT @MaHoaDon AS MaHoaDon;
     END TRY
     BEGIN CATCH
-        ROLLBACK;
+        IF @@TRANCOUNT > 0 ROLLBACK;
         THROW;
     END CATCH
 END;
@@ -391,301 +554,155 @@ GO
 USE PharmacyManagement;
 GO
 
-SET NOCOUNT ON;
-SET XACT_ABORT ON;
-SET QUOTED_IDENTIFIER ON;
-
-DECLARE @MaNVKho INT;
-DECLARE @MaNVDuoc INT;
-DECLARE @MaNVAdmin INT;
-DECLARE @T1 INT;
-DECLARE @T2 INT;
-DECLARE @T3 INT;
-DECLARE @T4 INT;
-DECLARE @GhiChuMau NVARCHAR(255) = N'[ALN sample 11-13/05/2026]';
-DECLARE @Pn INT;
-DECLARE @Hd INT;
-
-/* ------------------------------------------------------------------------- */
-/* Khối A — Danh mục (style giống PharmacyManagement.sql, idempotent)        */
-/* ------------------------------------------------------------------------- */
-
-IF NOT EXISTS (SELECT 1 FROM dbo.VaiTro)
-BEGIN
-    INSERT INTO dbo.VaiTro (TenVaiTro, MoTa)
-    VALUES
-        (N'Admin', N'Quản trị toàn hệ thống'),
-        (N'QuanLy', N'Quản lý nhà thuốc'),
-        (N'DuocSi', N'Nhân viên bán thuốc'),
-        (N'NhanVienKho', N'Nhân viên kho');
-
-    PRINT N'Khối A: Đã chèn VaiTro.';
-END
-ELSE
-    PRINT N'Khối A: Bảng VaiTro đã có dữ liệu — bỏ qua INSERT VaiTro.';
-
-IF NOT EXISTS (SELECT 1 FROM dbo.NhomThuoc)
-BEGIN
-    INSERT INTO dbo.NhomThuoc (TenNhomThuoc, MoTa)
-    VALUES
-        (N'Giảm đau - Hạ sốt', N'Nhóm thuốc giảm đau, hạ sốt'),
-        (N'Kháng sinh', N'Nhóm thuốc kháng sinh'),
-        (N'Vitamin', N'Nhóm vitamin và khoáng chất'),
-        (N'Thực phẩm chức năng', N'Sản phẩm hỗ trợ sức khỏe');
-
-    PRINT N'Khối A: Đã chèn NhomThuoc.';
-END
-ELSE
-    PRINT N'Khối A: Bảng NhomThuoc đã có dữ liệu — bỏ qua INSERT NhomThuoc.';
-
-IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien)
-BEGIN
-    INSERT INTO dbo.NhanVien (
-        HoTen,
-        TenDangNhap,
-        MatKhauHash,
-        SoDienThoai,
-        Email,
-        MaVaiTro
-    )
-    VALUES
-        (N'Quản trị viên', N'admin', N'123456', N'0900000000', N'admin@pharmacy.com', 1),
-        (N'Nguyễn Văn A', N'duocsi01', N'123456', N'0911111111', N'duocsi01@pharmacy.com', 3),
-        (N'Trần Thị B', N'kho01', N'123456', N'0922222222', N'kho01@pharmacy.com', 4);
-
-    PRINT N'Khối A: Đã chèn NhanVien.';
-END
-ELSE
-    PRINT N'Khối A: Bảng NhanVien đã có dữ liệu — bỏ qua INSERT NhanVien.';
-
-IF NOT EXISTS (SELECT 1 FROM dbo.Thuoc)
-BEGIN
-    INSERT INTO dbo.Thuoc (
-        TenThuoc,
-        HoatChat,
-        HamLuong,
-        DonViTinh,
-        GiaNhap,
-        GiaBan,
-        SoLuongTon,
-        TonToiThieu,
-        HanSuDung,
-        MaNhomThuoc
-    )
-    VALUES
-        (N'Panadol 500mg', N'Paracetamol', N'500mg', N'Viên', 800, 1200, 100, 20, CAST(N'2026-12-31' AS DATE), 1),
-        (N'Hapacol 500mg', N'Paracetamol', N'500mg', N'Viên', 700, 1000, 150, 30, CAST(N'2026-10-30' AS DATE), 1),
-        (N'Amoxicillin 500mg', N'Amoxicillin', N'500mg', N'Viên', 1500, 2500, 80, 20, CAST(N'2026-08-15' AS DATE), 2),
-        (N'Vitamin C 500mg', N'Ascorbic Acid', N'500mg', N'Viên', 500, 900, 200, 50, CAST(N'2027-01-01' AS DATE), 3);
-
-    PRINT N'Khối A: Đã chèn Thuoc.';
-END
-ELSE
-    PRINT N'Khối A: Bảng Thuoc đã có dữ liệu — bỏ qua INSERT Thuoc.';
-
-/* ------------------------------------------------------------------------- */
-/* Khối B — Nghiệp vụ 11–13/05/2026 (phiếu nhập + hóa đơn)                   */
-/* ------------------------------------------------------------------------- */
-
-IF EXISTS (
-    SELECT 1
-    FROM dbo.PhieuNhap
-    WHERE GhiChu = @GhiChuMau
-)
-BEGIN
-    PRINT N'Khối B: Đã có phiếu nhập ghi chú mẫu — không chèn lại dữ liệu 11–13/05.';
-END
-ELSE
-BEGIN
-    SET @MaNVKho =
-        (SELECT MaNhanVien FROM dbo.NhanVien WHERE TenDangNhap = N'kho01');
-    SET @MaNVDuoc =
-        (SELECT MaNhanVien FROM dbo.NhanVien WHERE TenDangNhap = N'duocsi01');
-    SET @MaNVAdmin =
-        (SELECT MaNhanVien FROM dbo.NhanVien WHERE TenDangNhap = N'admin');
-
-    SET @T1 = (SELECT MaThuoc FROM dbo.Thuoc WHERE TenThuoc = N'Panadol 500mg');
-    SET @T2 = (SELECT MaThuoc FROM dbo.Thuoc WHERE TenThuoc = N'Hapacol 500mg');
-    SET @T3 = (SELECT MaThuoc FROM dbo.Thuoc WHERE TenThuoc = N'Amoxicillin 500mg');
-    SET @T4 = (SELECT MaThuoc FROM dbo.Thuoc WHERE TenThuoc = N'Vitamin C 500mg');
-
-    IF @MaNVKho IS NULL
-        OR @MaNVDuoc IS NULL
-        OR @T1 IS NULL
-        OR @T2 IS NULL
-        OR @T3 IS NULL
-        OR @T4 IS NULL
-    BEGIN
-        RAISERROR(
-            N'Khối B: Thiếu nhân viên (kho01/duocsi01) hoặc thuốc seed (Panadol/Hapacol/Amoxicillin/Vitamin C). Hoàn tất Khối A hoặc chạy PharmacyManagement.sql.',
-            16,
-            1
-        );
-    END
-    ELSE
-    BEGIN
-        IF @MaNVAdmin IS NULL
-            SET @MaNVAdmin = @MaNVDuoc;
-
-        BEGIN TRANSACTION;
-
-        BEGIN TRY
-            INSERT INTO dbo.PhieuNhap (NgayNhap, MaNhanVien, NhaCungCap, TongTien, GhiChu)
-            VALUES (CAST(N'2026-05-11T08:15:00' AS DATETIME), @MaNVKho, N'Công ty Dược Minh Anh', 0, @GhiChuMau);
-
-            SET @Pn = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietPhieuNhap (MaPhieuNhap, MaThuoc, SoLuongNhap, DonGiaNhap, HanSuDung)
-            VALUES
-                (@Pn, @T1, 220, 810.00, CAST(N'2027-08-01' AS DATE)),
-                (@Pn, @T2, 160, 705.00, CAST(N'2027-06-15' AS DATE)),
-                (@Pn, @T3, 90, 1490.00, CAST(N'2027-03-20' AS DATE)),
-                (@Pn, @T4, 120, 495.00, CAST(N'2028-01-10' AS DATE));
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-11T09:40:00' AS DATETIME), @MaNVDuoc, N'Lê Thị Lan', N'0912000101',
-                0, 0, 0, N'Tiền mặt', N'Hoàn thành'
-            );
-            SET @Hd = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
-            VALUES
-                (@Hd, @T1, 12, 1200.00),
-                (@Hd, @T4, 8, 900.00);
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-11T14:05:00' AS DATETIME), @MaNVDuoc, N'Phạm Văn Hùng', N'0912000102',
-                0, 5000.00, 0, N'Chuyển khoản', N'Hoàn thành'
-            );
-            SET @Hd = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
-            VALUES
-                (@Hd, @T2, 20, 1000.00),
-                (@Hd, @T3, 6, 2500.00);
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-11T16:50:00' AS DATETIME), @MaNVDuoc, N'Đơn hủy (mẫu)', N'0912000199',
-                185000.00, 0, 185000.00, N'Tiền mặt', N'Đã hủy'
-            );
-
-            INSERT INTO dbo.PhieuNhap (NgayNhap, MaNhanVien, NhaCungCap, TongTien, GhiChu)
-            VALUES (CAST(N'2026-05-12T07:45:00' AS DATETIME), @MaNVKho, N'Đại lý Dược Phúc An', 0, @GhiChuMau);
-
-            SET @Pn = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietPhieuNhap (MaPhieuNhap, MaThuoc, SoLuongNhap, DonGiaNhap, HanSuDung)
-            VALUES
-                (@Pn, @T1, 80, 805.00, CAST(N'2027-09-01' AS DATE)),
-                (@Pn, @T4, 60, 500.00, CAST(N'2028-02-01' AS DATE));
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-12T10:20:00' AS DATETIME), @MaNVDuoc, N'Hoàng Minh Tuấn', N'0912000201',
-                0, 0, 0, N'Tiền mặt', N'Hoàn thành'
-            );
-            SET @Hd = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
-            VALUES (@Hd, @T1, 18, 1200.00);
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-12T15:30:00' AS DATETIME), @MaNVAdmin, N'Nguyễn Thảo My', N'0912000202',
-                0, 0, 0, N'QR Pay', N'Hoàn thành'
-            );
-            SET @Hd = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
-            VALUES
-                (@Hd, @T2, 14, 1000.00),
-                (@Hd, @T4, 22, 900.00);
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-12T18:00:00' AS DATETIME), @MaNVDuoc, N'Khách chờ (mẫu)', N'0912000298',
-                45000.00, 0, 45000.00, N'Tiền mặt', N'Chờ thanh toán'
-            );
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-13T08:50:00' AS DATETIME), @MaNVDuoc, N'Trần Quốc Bảo', N'0912000301',
-                0, 0, 0, N'Tiền mặt', N'Hoàn thành'
-            );
-            SET @Hd = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
-            VALUES
-                (@Hd, @T3, 10, 2500.00),
-                (@Hd, @T1, 6, 1200.00);
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-13T12:10:00' AS DATETIME), @MaNVDuoc, N'Võ Thị Mai', N'0912000302',
-                0, 3000.00, 0, N'Tiền mặt', N'Hoàn thành'
-            );
-            SET @Hd = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
-            VALUES (@Hd, @T4, 30, 900.00);
-
-            INSERT INTO dbo.HoaDon (
-                NgayLap, MaNhanVien, TenKhachHang, SoDienThoai,
-                TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai
-            )
-            VALUES (
-                CAST(N'2026-05-13T19:25:00' AS DATETIME), @MaNVAdmin, N'Cửa hàng ABC (mẫu)', N'0912000303',
-                0, 0, 0, N'Chuyển khoản', N'Hoàn thành'
-            );
-            SET @Hd = SCOPE_IDENTITY();
-            INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
-            VALUES
-                (@Hd, @T1, 25, 1200.00),
-                (@Hd, @T2, 12, 1000.00),
-                (@Hd, @T3, 4, 2500.00);
-
-            COMMIT TRANSACTION;
-            PRINT N'Khối B: Đã nạp phiếu nhập + hóa đơn mẫu 11–13/05/2026.';
-        END TRY
-        BEGIN CATCH
-            IF @@TRANCOUNT > 0
-                ROLLBACK TRANSACTION;
-            THROW;
-        END CATCH;
-    END;
-END;
-
-PRINT N'';
-PRINT N'Kiểm tra: SELECT * FROM vw_DoanhThuTheoNgay WHERE Ngay BETWEEN ''2026-05-11'' AND ''2026-05-13'';';
+/* ========================================================================
+   DỮ LIỆU MẪU CHUYÊN NGHIỆP CHO PharmacyManagement
+   - Chống trùng dữ liệu khi chạy lại script
+   - Có dữ liệu Danh mục Dược Quốc Gia
+   - Có phiếu nhập kho đúng luồng: lập phiếu -> thêm hàng nhập -> tra DQG
+   ======================================================================== */
+USE PharmacyManagement;
 GO
 
-/*
---------------------------------------------------------------------------------
-Encoding / Unicode (tiếng Việt)
---------------------------------------------------------------------------------
-- Lưu và chạy script SQL dưới dạng UTF-8 (khuyến nghị có BOM) để literal N''...'' không bị sai byte.
-- Trạng thái hóa đơn chuẩn: N''Hoàn thành'', N''Đã hủy'', N''Chờ thanh toán''.
-- Ứng dụng (DAL) so khớp thêm biến thể mojibake cho ''Hoàn thành'' khi dữ liệu cũ lưu sai UTF-8/Latin-1;
-  BLL chuẩn hóa chuỗi hiển thị dashboard (UnicodeTextHelper).
---------------------------------------------------------------------------------
-*/
+SET NOCOUNT ON;
+SET XACT_ABORT ON;
+
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    /* 1. Danh mục nền */
+    IF NOT EXISTS (SELECT 1 FROM dbo.VaiTro WHERE TenVaiTro = N'Admin')
+        INSERT INTO dbo.VaiTro (TenVaiTro, MoTa) VALUES (N'Admin', N'Quản trị toàn hệ thống');
+    IF NOT EXISTS (SELECT 1 FROM dbo.VaiTro WHERE TenVaiTro = N'QuanLy')
+        INSERT INTO dbo.VaiTro (TenVaiTro, MoTa) VALUES (N'QuanLy', N'Quản lý nhà thuốc');
+    IF NOT EXISTS (SELECT 1 FROM dbo.VaiTro WHERE TenVaiTro = N'DuocSi')
+        INSERT INTO dbo.VaiTro (TenVaiTro, MoTa) VALUES (N'DuocSi', N'Dược sĩ bán thuốc, tư vấn thuốc');
+    IF NOT EXISTS (SELECT 1 FROM dbo.VaiTro WHERE TenVaiTro = N'NhanVienKho')
+        INSERT INTO dbo.VaiTro (TenVaiTro, MoTa) VALUES (N'NhanVienKho', N'Nhân viên lập phiếu nhập kho, kiểm kho');
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Giảm đau - Hạ sốt')
+        INSERT INTO dbo.NhomThuoc (TenNhomThuoc, MoTa) VALUES (N'Giảm đau - Hạ sốt', N'Thuốc giảm đau, hạ sốt thông dụng');
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Kháng sinh')
+        INSERT INTO dbo.NhomThuoc (TenNhomThuoc, MoTa) VALUES (N'Kháng sinh', N'Thuốc kháng sinh dùng theo đơn');
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Vitamin - Khoáng chất')
+        INSERT INTO dbo.NhomThuoc (TenNhomThuoc, MoTa) VALUES (N'Vitamin - Khoáng chất', N'Vitamin và khoáng chất');
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Tiêu hóa')
+        INSERT INTO dbo.NhomThuoc (TenNhomThuoc, MoTa) VALUES (N'Tiêu hóa', N'Thuốc hỗ trợ tiêu hóa, dạ dày');
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Dị ứng')
+        INSERT INTO dbo.NhomThuoc (TenNhomThuoc, MoTa) VALUES (N'Dị ứng', N'Thuốc kháng histamin, chống dị ứng');
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Kho WHERE TenKho = N'Kho chính')
+        INSERT INTO dbo.Kho (TenKho, DiaChi) VALUES (N'Kho chính', N'Khu vực bảo quản chính của nhà thuốc');
+    IF NOT EXISTS (SELECT 1 FROM dbo.Kho WHERE TenKho = N'Quầy bán')
+        INSERT INTO dbo.Kho (TenKho, DiaChi) VALUES (N'Quầy bán', N'Khu vực quầy bán lẻ');
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhaCungCap WHERE TenNhaCungCap = N'Công ty Dược Minh Anh')
+        INSERT INTO dbo.NhaCungCap (TenNhaCungCap, SoDienThoai, DiaChi) VALUES (N'Công ty Dược Minh Anh', '02839990001', N'TP. Hồ Chí Minh');
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhaCungCap WHERE TenNhaCungCap = N'Đại lý Dược Phúc An')
+        INSERT INTO dbo.NhaCungCap (TenNhaCungCap, SoDienThoai, DiaChi) VALUES (N'Đại lý Dược Phúc An', '02438880002', N'Hà Nội');
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien WHERE TenDangNhap = 'admin')
+        INSERT INTO dbo.NhanVien (HoTen, TenDangNhap, MatKhauHash, SoDienThoai, Email, MaVaiTro)
+        SELECT N'Quản trị viên', 'admin', '123456', '0900000000', 'admin@pharmacy.local', MaVaiTro FROM dbo.VaiTro WHERE TenVaiTro = N'Admin';
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien WHERE TenDangNhap = 'duocsi01')
+        INSERT INTO dbo.NhanVien (HoTen, TenDangNhap, MatKhauHash, SoDienThoai, Email, MaVaiTro)
+        SELECT N'Nguyễn Văn A', 'duocsi01', '123456', '0911111111', 'duocsi01@pharmacy.local', MaVaiTro FROM dbo.VaiTro WHERE TenVaiTro = N'DuocSi';
+    IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien WHERE TenDangNhap = 'kho01')
+        INSERT INTO dbo.NhanVien (HoTen, TenDangNhap, MatKhauHash, SoDienThoai, Email, MaVaiTro)
+        SELECT N'Trần Thị B', 'kho01', '123456', '0922222222', 'kho01@pharmacy.local', MaVaiTro FROM dbo.VaiTro WHERE TenVaiTro = N'NhanVienKho';
+
+    /* 2. Danh mục thuốc Dược Quốc Gia mẫu */
+    DECLARE @DQG TABLE(
+        MaDQGDonVi VARCHAR(50), TenHangHoa NVARCHAR(150), SoDangKy VARCHAR(50),
+        HoatChatChinh NVARCHAR(255), HoatChatDangKy NVARCHAR(255), HamLuong NVARCHAR(100),
+        DongGoi NVARCHAR(150), HangSanXuat NVARCHAR(150), NuocSanXuat NVARCHAR(100), DonViTinh NVARCHAR(30)
+    );
+
+    INSERT INTO @DQG VALUES
+    ('DQG00012947', N'Harcotin', 'VD-21602-14', N'Atorvastatin', N'Atorvastatin calcium 10mg', N'10mg', N'Hộp 10 vỉ x 10 viên', N'Xí nghiệp dược phẩm 150', N'Việt Nam', N'Viên'),
+    ('DQG00024581', N'Paracetamol STADA', 'VD-31452-19', N'Paracetamol', N'Paracetamol 500mg', N'500mg', N'Hộp 10 vỉ x 10 viên nén', N'STADA Việt Nam', N'Việt Nam', N'Viên'),
+    ('DQG00038741', N'Amoxicillin 500', 'VD-22871-15', N'Amoxicillin', N'Amoxicillin trihydrate 500mg', N'500mg', N'Hộp 10 vỉ x 10 viên nang', N'Công ty cổ phần dược Hậu Giang', N'Việt Nam', N'Viên'),
+    ('DQG00048125', N'Cefixim 200', 'VD-27911-17', N'Cefixime', N'Cefixime 200mg', N'200mg', N'Hộp 2 vỉ x 10 viên', N'Pymepharco', N'Việt Nam', N'Viên'),
+    ('DQG00051263', N'Augmentin 625mg', 'VN-18932-15', N'Amoxicillin + Acid clavulanic', N'Amoxicillin 500mg + Clavulanic acid 125mg', N'625mg', N'Hộp 2 vỉ x 7 viên', N'GlaxoSmithKline', N'Anh', N'Viên'),
+    ('DQG00062314', N'Panadol Extra', 'VN-10231-10', N'Paracetamol + Caffeine', N'Paracetamol 500mg + Caffeine 65mg', N'565mg', N'Hộp 15 vỉ x 12 viên', N'GlaxoSmithKline', N'Anh', N'Viên'),
+    ('DQG00073492', N'Metformin 500mg', 'VD-19832-13', N'Metformin hydrochloride', N'Metformin hydrochloride 500mg', N'500mg', N'Hộp 10 vỉ x 10 viên', N'US Pharma USA', N'Việt Nam', N'Viên'),
+    ('DQG00084521', N'Diamicron MR', 'VN-17742-14', N'Gliclazide', N'Gliclazide 30mg', N'30mg', N'Hộp 2 vỉ x 15 viên', N'Les Laboratoires Servier', N'Pháp', N'Viên'),
+    ('DQG00095632', N'Voltaren 50mg', 'VN-13542-11', N'Diclofenac', N'Diclofenac sodium 50mg', N'50mg', N'Hộp 2 vỉ x 10 viên', N'Novartis', N'Thụy Sĩ', N'Viên'),
+    ('DQG00106743', N'Alpha Choay', 'VN-15236-12', N'Alpha chymotrypsin', N'Alpha chymotrypsin 4.2mg', N'4.2mg', N'Hộp 2 vỉ x 10 viên', N'Sanofi', N'Pháp', N'Viên'),
+    ('DQG00117854', N'Clarithromycin 500mg', 'VD-25231-16', N'Clarithromycin', N'Clarithromycin 500mg', N'500mg', N'Hộp 1 vỉ x 10 viên', N'Imexpharm', N'Việt Nam', N'Viên'),
+    ('DQG00128965', N'Zinnat 500mg', 'VN-19452-15', N'Cefuroxime', N'Cefuroxime axetil 500mg', N'500mg', N'Hộp 2 vỉ x 5 viên', N'GlaxoSmithKline', N'Anh', N'Viên'),
+    ('DQG00139076', N'Loratadin 10mg', 'VD-30145-18', N'Loratadine', N'Loratadine 10mg', N'10mg', N'Hộp 10 vỉ x 10 viên', N'Dược phẩm Hà Tây', N'Việt Nam', N'Viên'),
+    ('DQG00140187', N'Cetirizine STADA', 'VD-22117-15', N'Cetirizine', N'Cetirizine dihydrochloride 10mg', N'10mg', N'Hộp 2 vỉ x 10 viên', N'STADA Việt Nam', N'Việt Nam', N'Viên'),
+    ('DQG00151298', N'Oresol', 'VD-11245-10', N'Glucose + Sodium chloride + Potassium chloride', N'Oresol pha dung dịch uống', N'27.9g', N'Hộp 20 gói', N'Dược phẩm OPC', N'Việt Nam', N'Gói'),
+    ('DQG00162409', N'Vitamin C 500mg', 'VD-20871-14', N'Acid ascorbic', N'Acid ascorbic 500mg', N'500mg', N'Hộp 10 vỉ x 10 viên', N'Dược phẩm Nam Hà', N'Việt Nam', N'Viên'),
+    ('DQG00173510', N'Omeprazole 20mg', 'VD-31542-19', N'Omeprazole', N'Omeprazole 20mg', N'20mg', N'Hộp 3 vỉ x 10 viên', N'Hassan-Dermapharm', N'Việt Nam', N'Viên'),
+    ('DQG00184621', N'Efferalgan 500mg', 'VN-12452-11', N'Paracetamol', N'Paracetamol 500mg', N'500mg', N'Hộp 4 vỉ x 4 viên sủi', N'UPSA SAS', N'Pháp', N'Viên sủi'),
+    ('DQG00195732', N'Bromhexin 8mg', 'VD-17854-12', N'Bromhexine hydrochloride', N'Bromhexine hydrochloride 8mg', N'8mg', N'Hộp 10 vỉ x 10 viên', N'Traphaco', N'Việt Nam', N'Viên'),
+    ('DQG00206843', N'Methylprednisolone 16mg', 'VD-28654-18', N'Methylprednisolone', N'Methylprednisolone 16mg', N'16mg', N'Hộp 3 vỉ x 10 viên', N'Pfizer', N'Mỹ', N'Viên');
+
+    MERGE dbo.DanhMucDQG AS target
+    USING @DQG AS src
+       ON target.MaDQGDonVi = src.MaDQGDonVi
+    WHEN NOT MATCHED BY TARGET THEN
+        INSERT (MaDQGDonVi, TenHangHoa, SoDangKy, HoatChatChinh, HoatChatDangKy, HamLuong, DongGoi, HangSanXuat, NuocSanXuat, DonViTinh)
+        VALUES (src.MaDQGDonVi, src.TenHangHoa, src.SoDangKy, src.HoatChatChinh, src.HoatChatDangKy, src.HamLuong, src.DongGoi, src.HangSanXuat, src.NuocSanXuat, src.DonViTinh)
+    WHEN MATCHED THEN
+        UPDATE SET TenHangHoa = src.TenHangHoa, SoDangKy = src.SoDangKy, HoatChatChinh = src.HoatChatChinh,
+                   HoatChatDangKy = src.HoatChatDangKy, HamLuong = src.HamLuong, DongGoi = src.DongGoi,
+                   HangSanXuat = src.HangSanXuat, NuocSanXuat = src.NuocSanXuat, DonViTinh = src.DonViTinh;
+
+    /* 3. Thuốc nội bộ liên kết DQG */
+    DECLARE @NhomGiamDau INT = (SELECT MaNhomThuoc FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Giảm đau - Hạ sốt');
+    DECLARE @NhomKhangSinh INT = (SELECT MaNhomThuoc FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Kháng sinh');
+    DECLARE @NhomVitamin INT = (SELECT MaNhomThuoc FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Vitamin - Khoáng chất');
+    DECLARE @NhomDiUng INT = (SELECT MaNhomThuoc FROM dbo.NhomThuoc WHERE TenNhomThuoc = N'Dị ứng');
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Thuoc WHERE TenThuoc = N'Paracetamol STADA')
+        INSERT INTO dbo.Thuoc (TenThuoc, HoatChat, HamLuong, DonViTinh, GiaNhap, GiaBan, TonToiThieu, MaNhomThuoc, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi)
+        SELECT TenHangHoa, HoatChatChinh, HamLuong, DonViTinh, 700, 1000, 30, @NhomGiamDau, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi FROM dbo.DanhMucDQG WHERE MaDQGDonVi = 'DQG00024581';
+    IF NOT EXISTS (SELECT 1 FROM dbo.Thuoc WHERE TenThuoc = N'Amoxicillin 500')
+        INSERT INTO dbo.Thuoc (TenThuoc, HoatChat, HamLuong, DonViTinh, GiaNhap, GiaBan, TonToiThieu, MaNhomThuoc, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi)
+        SELECT TenHangHoa, HoatChatChinh, HamLuong, DonViTinh, 1500, 2500, 20, @NhomKhangSinh, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi FROM dbo.DanhMucDQG WHERE MaDQGDonVi = 'DQG00038741';
+    IF NOT EXISTS (SELECT 1 FROM dbo.Thuoc WHERE TenThuoc = N'Vitamin C 500mg')
+        INSERT INTO dbo.Thuoc (TenThuoc, HoatChat, HamLuong, DonViTinh, GiaNhap, GiaBan, TonToiThieu, MaNhomThuoc, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi)
+        SELECT TenHangHoa, HoatChatChinh, HamLuong, DonViTinh, 500, 900, 50, @NhomVitamin, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi FROM dbo.DanhMucDQG WHERE MaDQGDonVi = 'DQG00162409';
+    IF NOT EXISTS (SELECT 1 FROM dbo.Thuoc WHERE TenThuoc = N'Loratadin 10mg')
+        INSERT INTO dbo.Thuoc (TenThuoc, HoatChat, HamLuong, DonViTinh, GiaNhap, GiaBan, TonToiThieu, MaNhomThuoc, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi)
+        SELECT TenHangHoa, HoatChatChinh, HamLuong, DonViTinh, 600, 1200, 20, @NhomDiUng, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi FROM dbo.DanhMucDQG WHERE MaDQGDonVi = 'DQG00139076';
+
+    /* 4. Phiếu nhập kho mẫu: Đang lập -> chi tiết (lô/HSD) -> Đã nhập kho (trigger cộng LoThuoc) */
+    IF NOT EXISTS (SELECT 1 FROM dbo.PhieuNhap WHERE SoHoaDon = 'PNK-20260514-001')
+    BEGIN
+        DECLARE @MaNVKho INT = (SELECT MaNhanVien FROM dbo.NhanVien WHERE TenDangNhap = 'kho01');
+        DECLARE @MaKho INT = (SELECT MaKho FROM dbo.Kho WHERE TenKho = N'Kho chính');
+        DECLARE @MaNCC INT = (SELECT MaNhaCungCap FROM dbo.NhaCungCap WHERE TenNhaCungCap = N'Công ty Dược Minh Anh');
+        DECLARE @PN INT;
+
+        INSERT INTO dbo.PhieuNhap (
+            NgayNhap, MaNhanVien, SoHoaDon, NgayHoaDon, LoaiPhieuNhap, MaKho, MaNhaCungCap,
+            PhuongTienVanChuyen, DonViVanChuyen, NguoiGiaoHang, VAT, ChietKhau, GhiChu, TrangThai
+        )
+        VALUES (
+            '2026-05-14T08:30:00', @MaNVKho, 'PNK-20260514-001', '2026-05-14', N'Nhập hàng nhà cung cấp', @MaKho, @MaNCC,
+            N'Xe tải', N'Giao hàng nhanh', N'Lê Văn Giao', 8, 50000,
+            N'Phiếu nhập mẫu cho menu Lập phiếu nhập kho', N'Lưu'
+        );
+        SET @PN = SCOPE_IDENTITY();
+
+        INSERT INTO dbo.ChiTietPhieuNhap (MaPhieuNhap, MaThuoc, SoLuongNhap, DonGiaNhap, HanSuDung, GiaBan, SoLo, ViTri, GhiChu, VAT)
+        SELECT @PN, MaThuoc, 120, 700, '2027-08-30', 1000, 'LO-PARA-0827', N'Kệ A1', N'Thuốc đã có trong hệ thống', NULL FROM dbo.Thuoc WHERE TenThuoc = N'Paracetamol STADA'
+        UNION ALL
+        SELECT @PN, MaThuoc, 80, 1500, '2027-06-15', 2500, 'LO-AMOX-0627', N'Kệ B2', N'Thuốc liên kết từ Danh mục DQG', NULL FROM dbo.Thuoc WHERE TenThuoc = N'Amoxicillin 500'
+        UNION ALL
+        SELECT @PN, MaThuoc, 150, 500, '2028-01-10', 900, 'LO-VITC-0128', N'Kệ C1', N'Thuốc mới thêm từ Danh mục DQG', NULL FROM dbo.Thuoc WHERE TenThuoc = N'Vitamin C 500mg';
+
+        UPDATE dbo.PhieuNhap SET TrangThai = N'Đã nhập kho' WHERE MaPhieuNhap = @PN;
+    END
+
+    COMMIT TRANSACTION;
+    PRINT N'Đã nạp dữ liệu mẫu PharmacyManagement thành công.';
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+    THROW;
+END CATCH;
 GO

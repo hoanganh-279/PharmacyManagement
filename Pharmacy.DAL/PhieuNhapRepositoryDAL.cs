@@ -8,7 +8,7 @@ public class PhieuNhapRepositoryDAL
 
     public PhieuNhapRepositoryDAL(DbContextDAL db) => _db = db;
 
-    /// <summary>Gọi sp_NhapKho — transaction và audit nằm trong CSDL.</summary>
+    /// <summary>Gọi sp_NhapKho — transaction và cộng lô trong CSDL (trigger khi Đã nhập kho).</summary>
     public int NhapKho(
         int maNhanVien,
         int maThuoc,
@@ -16,7 +16,11 @@ public class PhieuNhapRepositoryDAL
         decimal donGiaNhap,
         DateTime? hanSuDung,
         string? nhaCungCap,
-        string? ghiChu)
+        string? ghiChu,
+        int? maKho = null,
+        string? soLo = null,
+        decimal? giaBanDong = null,
+        string? viTri = null)
     {
         using var cn = _db.CreateConnection();
         using var cmd = new SqlCommand("sp_NhapKho", cn) { CommandType = System.Data.CommandType.StoredProcedure };
@@ -27,6 +31,10 @@ public class PhieuNhapRepositoryDAL
         cmd.Parameters.AddWithValue("@HanSuDung", (object?)hanSuDung ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@NhaCungCap", (object?)nhaCungCap ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@GhiChu", (object?)ghiChu ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@MaKho", (object?)maKho ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@SoLo", (object?)soLo ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@GiaBanDong", (object?)giaBanDong ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ViTri", (object?)viTri ?? DBNull.Value);
         cn.Open();
         using var rd = cmd.ExecuteReader();
         if (!rd.Read())

@@ -81,8 +81,8 @@ public partial class FrmLogin
         Font = new Font("Segoe UI", 9F);
         MinimumSize = new Size(880, 560);
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedSingle;
-        MaximizeBox = false;
+        FormBorderStyle = FormBorderStyle.Sizable;
+        MaximizeBox = true;
         BackColor = backdrop;
 
         lblFooter.Dock = DockStyle.Bottom;

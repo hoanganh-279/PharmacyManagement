@@ -1,4 +1,5 @@
 #nullable disable
+using System.ComponentModel;
 using System.Drawing.Drawing2D;
 using System.Globalization;
 using System.Linq;
@@ -7,7 +8,6 @@ using Pharmacy.BLL;
 using Pharmacy.Common;
 using Pharmacy.DAL;
 using Pharmacy.DTO.Views;
-using PharmacyManagement.Helpers;
 
 namespace PharmacyManagement.Forms.Main;
 
@@ -16,16 +16,9 @@ public partial class FrmDashboard : Form
     private static readonly Color Primary = Color.FromArgb(46, 125, 50);
     private static readonly Color PrimaryDark = Color.FromArgb(27, 94, 32);
     private static readonly Color MintBg = Color.FromArgb(232, 245, 233);
-    private static readonly Color SidebarBg = Color.FromArgb(250, 252, 250);
     private static readonly Color Muted = Color.FromArgb(97, 97, 97);
     private static readonly Color Ink = Color.FromArgb(33, 37, 41);
 
-    /// <summary>
-    /// Đệm phía trên vùng client để logo/menu trái và header+nội dung phải không sát mép trên (title bar / DPI).
-    /// </summary>
-    private const int ShellTopInsetPx = 40;
-
-    private readonly AuthService _auth = new(new DbContextDAL());
     private readonly ReportService _reportService = new(new DbContextDAL());
     private readonly ToolTip _dashTooltip = new() { ShowAlways = true };
 
@@ -35,20 +28,6 @@ public partial class FrmDashboard : Form
     private RectangleF[] _barHitRects = Array.Empty<RectangleF>();
     private GraphicsPath[] _pieHitPaths;
 
-    private TableLayoutPanel _root;
-    private Panel _sidebar;
-    private Panel _sidebarHeader;
-    private Label _lblBrand;
-    private Label _lblRoleTop;
-    private FlowLayoutPanel _navFlow;
-    private Panel _sidebarFooter;
-    private Panel _panelAvatar;
-    private Label _lblAvatarName;
-    private Label _lblAvatarLogin;
-    private Panel _workspace;
-    private Panel _header;
-    private TextBox _txtSearch;
-    private Button _btnBell;
     private Panel _scrollHost;
     private FlowLayoutPanel _dashboardFlow;
     private Label _lblWelcomeTitle;
@@ -74,32 +53,15 @@ public partial class FrmDashboard : Form
     private Label _lblKpiSapVal;
     private Label _lblKpiSapBadge;
 
-    private string _avatarInitials = "";
-    private string _roleBadge = "";
-    private Color _avatarColor = Primary;
-
-    private readonly List<NavItem> _navDefs =
-    [
-        new("dash", "Dashboard", []),
-        new("pos", "Bán hàng (POS)", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.DuocSi]),
-        new("thuoc", "Thuốc", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.DuocSi, VaiTroTen.NhanVienKho]),
-        new("nhap", "Nhập kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
-        new("ton", "Tồn kho / Kiểm kê", []),
-        new("canh", "Cảnh báo hết hạn", []),
-        new("bc", "Báo cáo doanh thu", [VaiTroTen.Admin, VaiTroTen.QuanLy]),
-        new("nv", "Nhân viên", [VaiTroTen.Admin]),
-        new("audit", "Audit log", [VaiTroTen.Admin, VaiTroTen.QuanLy]),
-    ];
-
-    private readonly Dictionary<string, Button> _navButtons = new(StringComparer.Ordinal);
-    private string _activeNav = "dash";
-
-    public bool ReLoginRequested { get; private set; }
+    /// <summary>Gọi từ FrmMain khi thao tác nhanh trên dashboard cần đồng bộ highlight sidebar (không đổi host).</summary>
+    [Browsable(false)]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
+    public Action<string, string> OnShellQuickNavigate { get; set; }
 
     public FrmDashboard()
     {
         InitializeComponent();
-        Text = "Pharmacy Management ALN — Dashboard";
+        Text = "Dashboard";
         BuildLayout();
         WireEvents();
         SetDoubleBufferedRecursive(this);
@@ -127,8 +89,10 @@ public partial class FrmDashboard : Form
         if (!UserSession.IsAuthenticated)
         {
             MessageBox.Show(this, "Phiên đăng nhập không hợp lệ.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
-            ReLoginRequested = true;
-            Close();
+            if (FindForm() is FrmMain main)
+                main.RequestRelogin();
+            else
+                Close();
         }
     }
 
@@ -138,21 +102,8 @@ public partial class FrmDashboard : Form
             return;
 
         var hoTen = UserSession.HoTen ?? "";
-        var login = UserSession.TenDangNhap ?? "";
-        var role = UserSession.TenVaiTro;
 
-        _avatarInitials = UserDisplayHelper.GetAvatarInitials(hoTen, login);
-        _roleBadge = UserDisplayHelper.GetRoleBadgeLetters(role);
-        _avatarColor = UserDisplayHelper.GetAvatarBackColor(role);
-
-        _lblRoleTop.Text = UserDisplayHelper.GetVaiTroDisplayName(role);
-        _lblAvatarName.Text = hoTen;
-        _lblAvatarLogin.Text = "@" + login;
         _lblWelcomeSub.Text = $"Chào mừng trở lại, {hoTen}. Đang tải dữ liệu tổng quan…";
-
-        _panelAvatar.Invalidate();
-        ApplyNavVisibility();
-        HighlightNav("dash");
 
         TaiLaiDashboardTuCoSoDuLieu();
     }
@@ -303,176 +254,17 @@ public partial class FrmDashboard : Form
         }
     }
 
-    private void ApplyNavVisibility()
-    {
-        var role = UserSession.TenVaiTro;
-        foreach (var def in _navDefs)
-        {
-            if (!_navButtons.TryGetValue(def.Key, out var btn))
-                continue;
-            btn.Visible = def.AllowedRoles.Length == 0
-                || (role is not null && def.AllowedRoles.Contains(role, StringComparer.Ordinal));
-        }
-    }
-
-    private void HighlightNav(string key)
-    {
-        _activeNav = key;
-        foreach (var kv in _navButtons)
-        {
-            var on = kv.Key == key;
-            kv.Value.BackColor = on ? MintBg : Color.Transparent;
-            kv.Value.ForeColor = on ? PrimaryDark : Ink;
-        }
-    }
-
     private void BuildLayout()
     {
-        Padding = new Padding(0, ShellTopInsetPx, 0, 0);
+        Padding = Padding.Empty;
 
-        _root = new TableLayoutPanel
+        _scrollHost = new Panel
         {
             Dock = DockStyle.Fill,
-            ColumnCount = 2,
-            RowCount = 1,
-            BackColor = BackColor
-        };
-        _root.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 264));
-        _root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        Controls.Add(_root);
-
-        _sidebar = new Panel { Dock = DockStyle.Fill, BackColor = SidebarBg };
-        _sidebar.Paint += Sidebar_OnPaint;
-        _root.Controls.Add(_sidebar, 0, 0);
-
-        _sidebarHeader = new Panel { Height = 96, Dock = DockStyle.Top, BackColor = SidebarBg };
-        _lblBrand = new Label
-        {
-            AutoSize = false,
-            Bounds = new Rectangle(20, 18, 220, 28),
-            Font = new Font("Segoe UI", 14F, FontStyle.Bold),
-            ForeColor = PrimaryDark,
-            Text = "Pharmacy ALN",
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-        _lblRoleTop = new Label
-        {
-            AutoSize = false,
-            Bounds = new Rectangle(20, 48, 220, 22),
-            Font = new Font("Segoe UI", 9.5F),
-            ForeColor = Muted,
-            Text = "—",
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-        _sidebarHeader.Controls.Add(_lblBrand);
-        _sidebarHeader.Controls.Add(_lblRoleTop);
-
-        _sidebarFooter = new Panel { Height = 108, Dock = DockStyle.Bottom, BackColor = SidebarBg };
-        _panelAvatar = new Panel
-        {
-            Bounds = new Rectangle(16, 12, 52, 52),
-            BackColor = Color.Transparent
-        };
-        _panelAvatar.Paint += PanelAvatar_OnPaint;
-        _lblAvatarName = new Label
-        {
-            AutoSize = false,
-            Bounds = new Rectangle(78, 14, 170, 22),
-            Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-            ForeColor = Ink,
-            Text = "—",
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-        _lblAvatarLogin = new Label
-        {
-            AutoSize = false,
-            Bounds = new Rectangle(78, 38, 170, 20),
-            Font = new Font("Segoe UI", 8.5F),
-            ForeColor = Muted,
-            Text = "—",
-            TextAlign = ContentAlignment.MiddleLeft
-        };
-        var btnLogout = new Button
-        {
-            Text = "Đăng xuất",
-            Bounds = new Rectangle(16, 72, 110, 30),
-            FlatStyle = FlatStyle.Flat,
-            Cursor = Cursors.Hand,
-            Font = new Font("Segoe UI", 9F),
-            ForeColor = PrimaryDark,
-            BackColor = Color.White
-        };
-        btnLogout.FlatAppearance.BorderColor = Color.FromArgb(200, 220, 202);
-        btnLogout.Click += BtnLogout_Click;
-        _sidebarFooter.Controls.Add(_panelAvatar);
-        _sidebarFooter.Controls.Add(_lblAvatarName);
-        _sidebarFooter.Controls.Add(_lblAvatarLogin);
-        _sidebarFooter.Controls.Add(btnLogout);
-
-        _navFlow = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
             AutoScroll = true,
-            Padding = new Padding(8, 12, 8, 8),
-            BackColor = SidebarBg
+            BackColor = Color.FromArgb(245, 247, 246),
+            Padding = new Padding(0)
         };
-        _navFlow.Controls.Add(new Panel { Height = 4, Width = 240, Margin = new Padding(0) }); // spacer
-        foreach (var def in _navDefs)
-        {
-            var b = CreateNavButton(def.Text, def.Key);
-            _navFlow.Controls.Add(b);
-            _navButtons[def.Key] = b;
-        }
-
-        // Thứ tự Dock WinForms: thêm Fill trước, rồi Bottom/Top — tránh vùng menu bị tính chồng lên header logo.
-        _sidebar.Controls.Add(_navFlow);
-        _sidebar.Controls.Add(_sidebarFooter);
-        _sidebar.Controls.Add(_sidebarHeader);
-
-        _workspace = new Panel { Dock = DockStyle.Fill, BackColor = Color.White };
-        _root.Controls.Add(_workspace, 1, 0);
-
-        _header = new Panel { Height = 60, Dock = DockStyle.Top, BackColor = Color.White };
-        _header.Paint += Header_OnPaint;
-        var lblSys = new Label
-        {
-            Text = "Hệ thống nhà thuốc",
-            AutoSize = true,
-            Location = new Point(20, 18),
-            Font = new Font("Segoe UI", 11F, FontStyle.Bold),
-            ForeColor = Ink
-        };
-        _txtSearch = new TextBox
-        {
-            Font = new Font("Segoe UI", 10F),
-            BorderStyle = BorderStyle.FixedSingle,
-            Text = ""
-        };
-        _txtSearch.PlaceholderText = "Tìm kiếm thuốc, hóa đơn...";
-        _txtSearch.Location = new Point(320, 16);
-        _txtSearch.Width = 420;
-        _txtSearch.Height = 32;
-        _btnBell = new Button
-        {
-            Text = "🔔",
-            Width = 40,
-            Height = 34,
-            FlatStyle = FlatStyle.Flat,
-            Cursor = Cursors.Hand,
-            Location = new Point(_workspace.Width - 72, 14),
-            Anchor = AnchorStyles.Top | AnchorStyles.Right,
-            Font = new Font("Segoe UI", 12F)
-        };
-        _btnBell.FlatAppearance.BorderSize = 0;
-        _btnBell.Click += (_, _) => MessageBox.Show(this, "Chưa có thông báo mới.", Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
-        _header.Controls.Add(lblSys);
-        _header.Controls.Add(_txtSearch);
-        _header.Controls.Add(_btnBell);
-        _header.Resize += (_, _) => { _btnBell.Left = _header.Width - 56; };
-
-        _scrollHost = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = Color.FromArgb(245, 247, 246), Padding = new Padding(0) };
 
         _dashboardFlow = new FlowLayoutPanel
         {
@@ -485,12 +277,10 @@ public partial class FrmDashboard : Form
             Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
         };
         _scrollHost.Controls.Add(_dashboardFlow);
-        // Fill trước, Top sau — vùng cuộn không chiếm phía dưới thanh tìm kiếm (tránh nút/cards bị che).
-        _workspace.Controls.Add(_scrollHost);
-        _workspace.Controls.Add(_header);
+        Controls.Add(_scrollHost);
 
         _scrollHost.Resize += (_, _) => SyncDashboardFlowLayout();
-        _workspace.Resize += (_, _) => SyncDashboardFlowLayout();
+        Resize += (_, _) => SyncDashboardFlowLayout();
         Shown += (_, _) => SyncDashboardFlowLayout();
 
         BuildDashboardContent();
@@ -606,9 +396,9 @@ public partial class FrmDashboard : Form
         for (var i = 0; i < 3; i++)
             _quickActions.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         _quickActions.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        _quickActions.Controls.Add(MkPrimaryBtn("+ Tạo hóa đơn mới", BtnQuickInvoice), 0, 0);
-        _quickActions.Controls.Add(MkOutlineBtn("+ Thêm thuốc mới", BtnQuickMedicine), 1, 0);
-        _quickActions.Controls.Add(MkOutlineBtn("Báo cáo nhanh", BtnQuickReport), 2, 0);
+        _quickActions.Controls.Add(MkPrimaryBtn("+ Kê đơn bán thuốc", BtnQuickInvoice), 0, 0);
+        _quickActions.Controls.Add(MkOutlineBtn("+ Thêm hàng hóa", BtnQuickMedicine), 1, 0);
+        _quickActions.Controls.Add(MkOutlineBtn("Báo cáo thuốc", BtnQuickReport), 2, 0);
 
         var quickBar = new Panel { Height = 48, Dock = DockStyle.Fill, BackColor = Color.Transparent };
         quickBar.Controls.Add(_quickActions);
@@ -865,23 +655,36 @@ public partial class FrmDashboard : Form
     }
 
     private void BtnQuickInvoice(object s, EventArgs e) =>
-        TryNavigateOrMessage("pos", "Mở màn bán hàng / POS khi module sẵn sàng.");
+        TryNavigateOrMessage("kedon", "Mở màn kê đơn bán thuốc khi module sẵn sàng.");
 
     private void BtnQuickMedicine(object s, EventArgs e) =>
-        TryNavigateOrMessage("thuoc", "Mở màn quản lý thuốc khi module sẵn sàng.");
+        TryNavigateOrMessage("hang", "Mở màn thêm hàng hóa khi module sẵn sàng.");
 
     private void BtnQuickReport(object s, EventArgs e) =>
-        TryNavigateOrMessage("bc", "Mở báo cáo doanh thu khi module sẵn sàng.");
+        TryNavigateOrMessage("bc_thuoc", "Mở báo cáo thuốc khi module sẵn sàng.");
 
     private void TryNavigateOrMessage(string navKey, string message)
     {
-        if (_navButtons.TryGetValue(navKey, out var btn) && btn.Visible)
+        if (FindForm() is not FrmMain main)
         {
-            HighlightNav(navKey);
+            MessageBox.Show(this, message, Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (!main.IsNavKeyVisible(navKey))
+        {
+            MessageBox.Show(this, "Tài khoản của bạn không có quyền truy cập chức năng này.", Text,
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        if (OnShellQuickNavigate is not null)
+            OnShellQuickNavigate(navKey, message);
+        else
+        {
+            main.HighlightNavWithoutHostChange(navKey);
             MessageBox.Show(this, message, Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
-        else
-            MessageBox.Show(this, "Tài khoản của bạn không có quyền truy cập chức năng này.", Text, MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
     private static (Panel panel, Label lblValue, Label lblBadge) MkKpiCard(
@@ -960,88 +763,6 @@ public partial class FrmDashboard : Form
         WrapValueAndBadge();
 
         return (p, lblV, lblB);
-    }
-
-    private Button CreateNavButton(string text, string key)
-    {
-        var b = new Button
-        {
-            Text = "  " + text,
-            TextAlign = ContentAlignment.MiddleLeft,
-            Height = 42,
-            Width = 232,
-            FlatStyle = FlatStyle.Flat,
-            Margin = new Padding(4, 2, 4, 2),
-            Cursor = Cursors.Hand,
-            Font = new Font("Segoe UI", 10F),
-            ForeColor = Ink,
-            BackColor = Color.Transparent
-        };
-        b.FlatAppearance.BorderSize = 0;
-        b.Click += (_, _) => OnNavClick(key);
-        return b;
-    }
-
-    private void OnNavClick(string key)
-    {
-        HighlightNav(key);
-        if (key == "dash")
-            return;
-        MessageBox.Show(this,
-            "Chức năng đang được nối với các form nghiệp vụ (Bán hàng, Thuốc, Kho, Báo cáo...).",
-            Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
-    }
-
-    private void BtnLogout_Click(object sender, EventArgs e)
-    {
-        _auth.DangXuat();
-        ReLoginRequested = true;
-        Close();
-    }
-
-    private void Sidebar_OnPaint(object sender, PaintEventArgs e)
-    {
-        using var pen = new Pen(Color.FromArgb(230, 236, 231), 1);
-        e.Graphics.DrawLine(pen, _sidebar.Width - 1, 0, _sidebar.Width - 1, _sidebar.Height);
-    }
-
-    private void Header_OnPaint(object sender, PaintEventArgs e)
-    {
-        using var pen = new Pen(Color.FromArgb(232, 236, 233), 1);
-        e.Graphics.DrawLine(pen, 0, _header.Height - 1, _header.Width, _header.Height - 1);
-    }
-
-    private void PanelAvatar_OnPaint(object sender, PaintEventArgs e)
-    {
-        var g = e.Graphics;
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        var rect = new Rectangle(0, 0, _panelAvatar.Width - 1, _panelAvatar.Height - 1);
-        using var path = RoundRect(rect, 14);
-        using var br = new SolidBrush(_avatarColor);
-        g.FillPath(br, path);
-        using var edge = new Pen(Color.FromArgb(80, 255, 255, 255), 1f);
-        g.DrawPath(edge, path);
-
-        var initialsRect = new Rectangle(rect.X, rect.Y, rect.Width, rect.Height - 14);
-        using var fBig = new Font("Segoe UI", 13F, FontStyle.Bold);
-        using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString(_avatarInitials, fBig, Brushes.White, initialsRect, fmt);
-
-        var badge = _roleBadge;
-        if (badge.Length == 0)
-            return;
-        using var fSm = new Font("Segoe UI", 6.5F, FontStyle.Bold);
-        var badgeSize = g.MeasureString(badge, fSm);
-        var bx = (rect.Width - badgeSize.Width - 10) / 2f;
-        var by = rect.Bottom - 15f;
-        var badgeRect = new RectangleF(bx, by, badgeSize.Width + 8, 13);
-        using var bbg = new SolidBrush(Color.FromArgb(235, 255, 255, 255));
-        using var bp = new Pen(Color.FromArgb(120, 255, 255, 255), 1);
-        g.FillRoundedRectangle(bbg, badgeRect, 3);
-        g.DrawRoundedRectangle(bp, badgeRect, 3);
-        using var fmt2 = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        using var badgeInk = new SolidBrush(PrimaryDark);
-        g.DrawString(badge, fSm, badgeInk, badgeRect, fmt2);
     }
 
     private void BarChart_OnPaint(object sender, PaintEventArgs e)
@@ -1336,8 +1057,6 @@ public partial class FrmDashboard : Form
             return;
         e.Value = UnicodeTextHelper.TryRepairMojibakeForDisplay(s);
     }
-
-    private sealed record NavItem(string Key, string Text, string[] AllowedRoles);
 }
 
 internal static class GraphicsExtensions

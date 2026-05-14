@@ -24,6 +24,7 @@ public partial class FrmLogin : Form
     {
         InitializeComponent();
         Text = $"Đăng nhập — {BrandTitle}";
+        AcceptButton = btnDangNhap;
         WireChrome();
     }
 
@@ -107,9 +108,9 @@ public partial class FrmLogin : Form
         g.FillPath(fill, path);
         using var edge = new Pen(Color.FromArgb(70, 150, 74), 1f);
         g.DrawPath(edge, path);
-        using var f = new Font("Segoe UI", 17F, FontStyle.Bold);
+        using var f = new Font("Segoe UI", 16F, FontStyle.Bold);
         using var fmt = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
-        g.DrawString("+", f, Brushes.White, rect, fmt);
+        g.DrawString("\u2695", f, Brushes.White, rect, fmt);
     }
 
     private void InputPanel_OnPaint(object? sender, PaintEventArgs e)

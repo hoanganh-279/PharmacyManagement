@@ -20,9 +20,9 @@ internal static class Program
             if (login.ShowDialog() != DialogResult.OK)
                 return;
 
-            var dash = new FrmDashboard();
-            Application.Run(dash);
-            if (!dash.ReLoginRequested)
+            var main = new FrmMain();
+            Application.Run(main);
+            if (!main.ReLoginRequested)
                 break;
         }
     }

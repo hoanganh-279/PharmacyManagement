@@ -1,49 +1,135 @@
 # PharmacyManagement — Ngữ cảnh dự án (ưu tiên đọc trước)
 
-Tài liệu này là **nguồn tham chiếu chính** cho kiến trúc mục tiêu, nghiệp vụ, giao diện, phân quyền và quy trình phát triển. Mọi thay đổi chức năng, refactor hoặc sửa lỗi cần **đối chiếu với file này trước**; nếu quyết định kỹ thuật lệch khỏi nội dung dưới đây, phải **cập nhật lại tài liệu này** trong cùng nhánh/commit.
+Tài liệu này là **nguồn tham chiếu chính** cho **nghiệp vụ**, **công nghệ**, **menu & giao diện**, **cấu trúc thư mục chuẩn**, **tích hợp ngoài**, **bảo mật**, **kiến trúc tầng** và **phân quyền**. **Luồng hoạt động từng bước** (FEFO, DQG, transaction nhập kho, kê đơn…) nằm trong **`project_Workflow.md`**.
+
+Mọi thay đổi chức năng, refactor hoặc sửa lỗi cần **đối chiếu với các tài liệu này**; nếu quyết định kỹ thuật lệch khỏi nội dung, phải **cập nhật lại đúng file** trong cùng nhánh/commit.
 
 ---
 
-## Tên Phần mềm: Pharmacy Management ALN
+## Tên đề tài & phần mềm
+
+- **Đề tài**: Quản lý nhà thuốc — **bán thuốc theo toa**.
+- **Tên phần mềm (branding)**: **Pharmacy Management ALN**.
+
+---
 
 ## 1. Trạng thái triển khai trong repo
 
-- **Hiện tại**: solution `PharmacyManagement.slnx` gồm project WinForms `PharmacyManagement` và các class library **`Pharmacy.Common`**, **`Pharmacy.DTO`**, **`Pharmacy.DAL`**, **`Pharmacy.BLL`** (ADO.NET + stored procedure `sp_DangNhap`, `sp_NhapKho`, `sp_BanThuoc`; đọc view báo cáo trong `SQL/View_PharmacyManagement.sql`). Project **`Pharmacy.GUI`** chưa tách — form vẫn nằm trong `PharmacyManagement/` (đã có màn đăng nhập `Forms/Auth/FrmLogin.cs` gọi `AuthService`; sau đăng nhập thành công `Program` mở **`Forms/Main/FrmDashboard.cs`** — shell dashboard tổng quan: KPI / biểu đồ cột doanh thu tuần / biểu đồ tròn trạng thái hóa đơn / lưới hóa đơn gần đây / cảnh báo lấy từ **`ReportService.LayDashboardHienThi()`** (BLL → DAL); hover cột và lát bánh làm nổi bật và hiển thị tooltip chi tiết; **Nhân viên kho** chỉ thấy chỉ số tồn + cảnh báo (doanh thu/hóa đơn ẩn theo vai trò). Menu trái ẩn theo `UserSession.TenVaiTro`, avatar chữ theo `Helpers/UserDisplayHelper.cs`; `Form1` giữ làm form placeholder khi cần thử nhanh).
-- **Mục tiêu**: tách `Pharmacy.GUI` khi ổn định form/module; mọi code presentation mới ưu tiên gọi **BLL**, không ghi SQL trực tiếp trong form.
+- **Hiện tại**: solution `PharmacyManagement.slnx` gồm project WinForms `PharmacyManagement` và các class library **`Pharmacy.Common`**, **`Pharmacy.DTO`**, **`Pharmacy.DAL`**, **`Pharmacy.BLL`** (ADO.NET + stored procedure `sp_DangNhap`, `sp_NhapKho`, `sp_BanThuoc`; đọc view báo cáo trong `SQL/View_PharmacyManagement.sql`). Project **`Pharmacy.GUI`** chưa tách — form vẫn nằm trong `PharmacyManagement/` (màn đăng nhập `Forms/Auth/FrmLogin.cs` gọi `AuthService`; sau đăng nhập thành công `Program` mở **`Forms/Main/FrmMain.cs`** — sidebar + header + vùng nội dung; mục **Dashboard** nhúng **`Forms/Main/FrmDashboard.cs`** — KPI / biểu đồ cột doanh thu tuần / biểu đồ tròn trạng thái hóa đơn / lưới hóa đơn gần đây / cảnh báo qua **`ReportService.LayDashboardHienThi()`** (BLL → DAL); hover cột và lát bánh + tooltip; **nhân viên kho** chỉ thấy chỉ số tồn + cảnh báo khi được mở rộng dashboard). Các mục menu khác hiện placeholder tới khi nối form nghiệp vụ. Menu trái ẩn theo `UserSession.TenVaiTro`, avatar chữ theo `Helpers/UserDisplayHelper.cs`; `Form1` giữ placeholder thử nhanh).
 
-**Framework**: `.csproj` có thể khai báo `TargetFramework` khác bảng “đề xuất” (ví dụ `net10.0-windows`). Khi đổi phiên bản .NET, cập nhật dòng tương ứng trong mục 3 và ghi chú tại đây.
+- **Mục tiêu UX/menu**: shell chính **`Forms/Main/FrmMain.cs`** — sidebar trái theo **mục 2** dưới đây; nội dung phải theo bảng ánh xạ **mục 2.2**. Tách `Pharmacy.GUI` khi ổn định; code presentation mới **chỉ** gọi **BLL**, không ghi SQL trong form.
+
+**Framework**: `.csproj` có thể khai báo `TargetFramework` khác bảng công nghệ (ví dụ `net10.0-windows`). Khi đổi phiên bản .NET, cập nhật **mục 4** và ghi chú tại đây.
 
 ---
 
-## 2. Cấu trúc thư mục chuẩn (mục tiêu)
+## 2. Menu sidebar (đề tài) & ánh xạ form
+
+### 2.1. Cây menu
+
+1. **Dashboard** — Admin  
+2. **Quản lý kho** — Admin, Kho  
+   - Thông tin phiếu nhập kho  
+   - Danh sách hàng nhập kho  
+3. **Thêm hàng hóa** — Admin, Kho  
+   - Tab: Thông tin chung · Thuộc tính · Đơn vị  
+4. **Kê đơn bán thuốc** — Dược sĩ  
+5. **Quản lý doanh thu** — Admin  
+6. **Quản lý nhân viên** — Admin  
+7. **Báo cáo** — theo mục con  
+   - Cảnh báo thuốc hết hàng / hết hạn — Admin, Kho, Dược sĩ  
+   - Báo cáo thuốc — Admin  
+8. **Audit log** — Admin  
+
+*(Đăng nhập và shell không nằm trong cây menu đề tài nhưng là cổng vào ứng dụng — xem bảng dưới.)*
+
+### 2.2. Ánh xạ menu → form / module (đường dẫn chuẩn trong `Pharmacy.GUI` hoặc project WinForms hiện tại)
+
+| Thứ tự / mục | Form / module (chuẩn) | Quyền | Ghi chú |
+|--------------|------------------------|--------|---------|
+| — | `Forms/Auth/FrmLogin.cs` | Tất cả | Trước shell |
+| — | `Forms/Main/FrmMain.cs` | Theo quyền | Sidebar + panel nội dung |
+| **1** | `Forms/Main/FrmDashboard.cs` | Admin | Tổng quan KPI & biểu đồ (Kho không dùng mục này theo ma trận mục 10) |
+| **2** (mẹ) | `Forms/Inventory/FrmQuanLyKho.cs` | Admin, Kho | Host hoặc điều hướng tới 2a / 2b |
+| **2a** | `Forms/Inventory/FrmThongTinPhieuNhapKho.cs` | Admin, Kho | Lập chứng từ `PhieuNhapKho` (chưa cộng tồn) |
+| **2b** | `Forms/Inventory/FrmDanhSachHangNhapKho.cs` | Admin, Kho | `ChiTietPhieuNhap`, DQG, lưới dòng |
+| **3** | `Forms/Product/FrmThemHangHoa.cs` | Admin, Kho | Tab: Thông tin chung / Thuộc tính / Đơn vị |
+| **4** | `Forms/Sales/FrmKeDonBanThuoc.cs` | Dược sĩ | Kê đơn, toa, FEFO — luồng bước trong Workflow |
+| **5** | `Forms/Finance/FrmQuanLyDoanhThu.cs` | Admin | Doanh thu / hóa đơn / lợi nhuận theo thiết kế |
+| **6** | `Forms/Admin/FrmNhanVien.cs` | Admin | CRUD nhân viên, tài khoản, phân quyền |
+| **7** (mẹ) | `Forms/Report/FrmBaoCao.cs` | Theo mục con | Host hoặc điều hướng 7a / 7b |
+| **7a** | `Forms/Report/FrmCanhBaoThuoc.cs` | Admin, Kho, Dược sĩ | Tồn thấp, sắp hết hạn, đã hết hạn |
+| **7b** | `Forms/Report/FrmBaoCaoThuoc.cs` | Admin | Danh mục, tồn, bán chạy/chậm… |
+| **8** | `Forms/Admin/FrmAuditLog.cs` | Admin | `AuditService` / lịch sử thao tác |
+
+### 2.3. TODO form (chưa gán cố định trong repo)
+
+Khi triển khai, đặt tên class và cập nhật bảng **2.2** — không bịa tên chưa tồn tại:
+
+- **Kiểm kê** / điều chỉnh tồn (nếu tách khỏi nhập kho)
+- **Khách hàng** / **Hồ sơ bệnh nhân** (mở rộng sau đề tài)
+
+---
+
+## 3. Giao diện WinForms
+
+### 3.1. Bố cục & điều hướng
+
+- **Shell**: sidebar **trái**, nội dung **phải** trong `FrmMain`.
+- **Điều hướng**: ẩn/hiện mục menu theo `UserSession.TenVaiTro`; BLL **luôn** từ chối thao tác trái quyền.
+- **Dashboard**: Admin xem đầy đủ KPI và doanh thu; nếu sau này Kho được vào dashboard rút gọn, chỉ hiển thị tồn + cảnh báo (không hiển thị doanh thu/hóa đơn chi tiết).
+
+### 3.2. Tông màu
+
+| Thành phần | Mã màu |
+|------------|--------|
+| Màu chính (xanh dược) | `#2E7D32` |
+| Màu phụ (xanh nhạt) | `#E8F5E9` |
+| Cảnh báo gần hết hạn | `#FB8C00` |
+| Thuốc hết hạn | `#D32F2F` |
+| Nền | Trắng / xám nhạt |
+| Text chính | Đen / xám đậm |
+
+### 3.3. Font
+
+- Font chính: **Segoe UI**
+- Form: 10–11 pt; tiêu đề: 14–18 pt **bold**; nút: 10–11 pt semi-bold nhẹ.
+
+---
+
+## 4. Cấu trúc thư mục chuẩn (khớp menu mục 2.1)
+
+Cây dưới đây **ánh xạ 1:1** thứ tự chức năng menu (1→8) vào thư mục `Forms/` (cùng với Auth + shell). Một số file có thể chưa tồn tại — khi tạo mới, đặt đúng đường dẫn và cập nhật bảng **2.2**.
 
 ```
 PharmacyManagement
 │
-├── Pharmacy.GUI
+├── Pharmacy.GUI                         ← mục tiêu tách; hiện có thể gộp trong PharmacyManagement/
 │   ├── Forms
-│   │   ├── Auth
-│   │   │   ├── FrmLogin.cs
-│   │   ├── Main
-│   │   │   ├── FrmDashboard.cs
-│   │   │   ├── FrmMain.cs
-│   │   ├── Medicine
-│   │   │   ├── FrmThuoc.cs
-│   │   │   ├── FrmNhomThuoc.cs
-│   │   ├── Inventory
-│   │   │   ├── FrmNhapKho.cs
-│   │   │   ├── FrmTonKho.cs
-│   │   ├── Sales
-│   │   │   ├── FrmBanHang.cs
-│   │   │   ├── FrmHoaDon.cs
-│   │   │   ├── FrmChiTietHoaDon.cs
-│   │   ├── Alert
-│   │   │   ├── FrmCanhBaoHetHan.cs
-│   │   ├── Report
-│   │   │   ├── FrmBaoCaoDoanhThu.cs
-│   │   └── Admin
-│   │       ├── FrmNhanVien.cs
-│   │       └── FrmAuditLog.cs
+│   │   ├── Auth                         ← trước shell (đăng nhập)
+│   │   │   └── FrmLogin.cs
+│   │   ├── Main                         ← shell + (1) Dashboard
+│   │   │   ├── FrmMain.cs              ← sidebar + panel nội dung
+│   │   │   └── FrmDashboard.cs         ← 1. Dashboard
+│   │   ├── Inventory                    ← 2. Quản lý kho
+│   │   │   ├── FrmQuanLyKho.cs         ← 2 — menu mẹ / host
+│   │   │   ├── FrmThongTinPhieuNhapKho.cs   ← 2a. Thông tin phiếu nhập kho
+│   │   │   └── FrmDanhSachHangNhapKho.cs    ← 2b. Danh sách hàng nhập kho
+│   │   ├── Product                      ← 3. Thêm hàng hóa
+│   │   │   └── FrmThemHangHoa.cs       ← tab: Thông tin chung / Thuộc tính / Đơn vị
+│   │   ├── Sales                        ← 4. Kê đơn bán thuốc
+│   │   │   └── FrmKeDonBanThuoc.cs
+│   │   ├── Finance                      ← 5. Quản lý doanh thu
+│   │   │   └── FrmQuanLyDoanhThu.cs
+│   │   ├── Admin                        ← 6. Quản lý nhân viên | 8. Audit log
+│   │   │   ├── FrmNhanVien.cs
+│   │   │   └── FrmAuditLog.cs
+│   │   └── Report                       ← 7. Báo cáo
+│   │       ├── FrmBaoCao.cs            ← 7 — menu mẹ / host
+│   │       ├── FrmCanhBaoThuoc.cs      ← 7a. Cảnh báo hết hàng / hết hạn
+│   │       └── FrmBaoCaoThuoc.cs       ← 7b. Báo cáo thuốc
+│   │
+│   └── (Resources, v.v. theo nhu cầu project)
 │
 ├── Pharmacy.BLL
 │   ├── AuthService.cs
@@ -68,6 +154,7 @@ PharmacyManagement
 │   ├── ThuocDTO.cs
 │   ├── NhomThuocDTO.cs
 │   ├── PhieuNhapDTO.cs
+│   ├── ChiTietPhieuNhapDTO.cs
 │   ├── HoaDonDTO.cs
 │   ├── ChiTietHoaDonDTO.cs
 │   └── AuditLogDTO.cs
@@ -84,92 +171,64 @@ PharmacyManagement
     └── View_PharmacyManagement.sql
 ```
 
+**Ghi chú tương thích cũ**: `FrmNhapKho`, `FrmThuoc`, `FrmBanHang`… nếu còn, thay thế dần hoặc gọi nội bộ từ form chuẩn trên; khi xóa/đổi tên, cập nhật **mục 2.2** và script build.
+
 ---
 
-## 3. Công nghệ cốt lõi
+## 5. Công nghệ cốt lõi
 
 | Thành phần | Công nghệ đề xuất |
 |------------|-------------------|
 | Giao diện | C# WinForms |
-| Backend nghiệp vụ | C# .NET Framework hoặc .NET 6+ Windows Desktop (runtime thực tế lấy từ `.csproj`) |
+| Backend nghiệp vụ | C# .NET Framework hoặc .NET 6+ Windows Desktop (runtime lấy từ `.csproj`) |
 | Cơ sở dữ liệu | SQL Server |
 | Kết nối CSDL | ADO.NET (`Microsoft.Data.SqlClient` trong `Pharmacy.DAL`) hoặc Entity Framework |
-| Cấu hình chuỗi kết nối WinForms | File `PharmacyManagement/appsettings.json` (copy cùng exe): `ConnectionStrings:PharmacyManagement`; `Program` gọi `ConnectionSettings.ApplyFromJsonFile()` trước khi mở đăng nhập. Mặc định code: `DbContextDAL.DefaultConnectionString` (LocalDB). |
+| Cấu hình chuỗi kết nối | `PharmacyManagement/appsettings.json` (copy cùng exe): `ConnectionStrings:PharmacyManagement`; `Program` gọi `ConnectionSettings.ApplyFromJsonFile()` trước đăng nhập. Mặc định: `DbContextDAL.DefaultConnectionString` (LocalDB). |
 | Báo cáo | Microsoft ReportViewer / RDLC |
 | Xuất Excel | ClosedXML / EPPlus |
 | Logging | Serilog / NLog |
-| Mật khẩu | BCrypt.Net (`BCrypt.Net-Next` trong `Pharmacy.Common`) |
+| Mật khẩu người dùng | BCrypt.Net (`BCrypt.Net-Next` trong `Pharmacy.Common`) — mục **7** |
 | Sao lưu | SQL Server Backup Script |
 | In hóa đơn | Crystal Report / RDLC / PrintDocument |
 | Biểu đồ doanh thu | Chart Control WinForms |
 
-**Quy ước**: không thêm thư viện ngoài bảng trên (hoặc ngoài stack đã thống nhất trong team) mà không cập nhật mục này và không ghi rõ lý do trong PR/commit.
+**Quy ước**: không thêm thư viện ngoài bảng trên mà không cập nhật mục này và ghi rõ lý do trong PR/commit.
 
-**Lỗi đăng nhập / SQL**: thông báo kiểu «Cannot open database 'PharmacyManagement'» nghĩa là trên instance SQL trong chuỗi kết nối **chưa có** database đó (hoặc sai server). Chạy `SQL/PharmacyManagement.sql` trên đúng instance (ví dụ SSMS kết nối `(localdb)\mssqllocaldb` nếu dùng mặc định), hoặc chỉnh `appsettings.json` trỏ tới SQL Server đã tạo CSDL. Form đăng nhập bắt `SqlException` và hiển thị gợi ý tương ứng.
+**Lỗi đăng nhập / SQL**: «Cannot open database 'PharmacyManagement'» → chưa tạo DB hoặc sai server. Chạy `SQL/PharmacyManagement.sql` trên đúng instance, hoặc chỉnh `appsettings.json`.
 
-**Tiếng Việt / Unicode**: script SQL và CSDL nên UTF-8 (có BOM khi cần). `Pharmacy.Common/UnicodeTextHelper` và DAL so khớp thêm alias trạng thái **Hoàn thành** xử lý dữ liệu cũ bị mojibake; `Program` đặt `CultureInfo` mặc định `vi-VN` cho định dạng tiền tệ trên dashboard.
-
----
-
-## 4. Giao diện WinForms
-
-### Tông màu
-
-| Thành phần | Mã màu |
-|------------|--------|
-| Màu chính (xanh dược) | `#2E7D32` |
-| Màu phụ (xanh nhạt) | `#E8F5E9` |
-| Cảnh báo gần hết hạn | `#FB8C00` |
-| Thuốc hết hạn | `#D32F2F` |
-| Nền | Trắng / xám nhạt |
-| Text chính | Đen / xám đậm |
-
-### Font và cỡ chữ
-
-- Font chính: **Segoe UI**
-- Form: 10–11 pt
-- Tiêu đề: 14–18 pt, **bold**
-- Nút (Button): 10–11 pt, **semi-bold** nhẹ
+**Tiếng Việt / Unicode**: script SQL UTF-8 (BOM khi cần). `UnicodeTextHelper` và alias trạng thái **Hoàn thành** cho dữ liệu cũ; `Program` có thể đặt `CultureInfo` `vi-VN` cho định dạng tiền tệ.
 
 ---
 
-## 5. Bố cục UX và ánh xạ menu
+## 6. Tích hợp ngoài
 
-- **Bố cục**: menu **bên trái**, vùng **nội dung bên phải** (main shell, ví dụ `FrmMain`).
-- **Mục menu đề xuất**: Dashboard · Bán hàng · Nhập kho · Kiểm kê · Thuốc · Khách hàng · Báo cáo · Người dùng.
-
-### Ánh xạ tới form đã đặt tên trong cấu trúc chuẩn
-
-| Mục menu | Form / module (chuẩn) | Ghi chú |
-|----------|------------------------|---------|
-| Bán hàng | `Forms/Sales/FrmBanHang.cs` | Kèm hóa đơn: `FrmHoaDon`, `FrmChiTietHoaDon` |
-| Nhập kho | `Forms/Inventory/FrmNhapKho.cs` | |
-| Tồn kho / kiểm tra tồn | `Forms/Inventory/FrmTonKho.cs` | Có thể dùng làm bước đầu cho “Kiểm kê” |
-| Thuốc | `FrmThuoc.cs`, `FrmNhomThuoc.cs` | |
-| Cảnh báo / hết hạn | `Forms/Alert/FrmCanhBaoHetHan.cs` | |
-| Báo cáo | `Forms/Report/FrmBaoCaoDoanhThu.cs` | |
-| Người dùng / nhân sự | `Forms/Admin/FrmNhanVien.cs` | |
-| Audit | `Forms/Admin/FrmAuditLog.cs` | |
-| Đăng nhập | `Forms/Auth/FrmLogin.cs` | |
-| Dashboard (shell) | `Forms/Main/FrmDashboard.cs` | Sau đăng nhập; menu ẩn theo `UserSession` |
-
-### TODO kiến trúc (chưa có tên form cố định trong cây chuẩn)
-
-Các mục menu sau **chưa** được gán class trong cấu trúc thư mục chuẩn — khi triển khai, đặt tên form và cập nhật bảng trên; **không** bịa tên class trong agent mà chưa có trong repo hoặc trong tài liệu này:
-
-- **Kiểm kê** (nếu tách khỏi tồn kho / điều chỉnh kiểm kê)
-- **Khách hàng**
+| Tích hợp | Vai trò | Ghi chú |
+|----------|---------|---------|
+| **Danh mục dược quốc gia (DQG)** | Chuẩn hóa thuốc; tra cứu khi nhập kho / thêm hàng | BLL/DAL bọc API; **luồng bước** trong `project_Workflow.md` |
+| **SQL Server** | CSDL, backup/restore | `SQL/*.sql` |
+| **ReportViewer / RDLC** | Báo cáo, in | Theo màn hình mục 7 |
+| **ClosedXML / EPPlus** | Xuất Excel | Theo màn hình mục 5 / 7 |
 
 ---
 
-## 6. Kiến trúc tầng
+## 7. Bảo mật (mật khẩu, chuỗi kết nối, dữ liệu nhạy cảm)
 
-- **Presentation**: `Pharmacy.GUI` — WinForms, binding sự kiện, điều hướng, **không** chứa SQL trực tiếp.
-- **Business**: `Pharmacy.BLL` — luật nghiệp vụ, transaction điều phối, kiểm tra quyền (khuyến nghị).
-- **Data access**: `Pharmacy.DAL` — kết nối SQL Server, query/command, transaction ở lớp dữ liệu khi phù hợp.
-- **DTO**: `Pharmacy.DTO` — cấu trúc dữ liệu qua tầng; **không** chứa logic nghiệp vụ.
-- **Common**: tiện ích dùng chung (`UserSession`, mật khẩu, validate, log).
-- **Database**: script schema/trigger/view trong thư mục `SQL/` ở gốc workspace.
+- **Mật khẩu đăng nhập**: hash **BCrypt** (`PasswordHelper`); không plaintext, không log mật khẩu.
+- **Chuỗi kết nối / secrets**: `appsettings.json` hoặc biến môi trường; không commit secret thật — dùng file mẫu `.example` nếu cần.
+- **Phân quyền**: BLL (+ DAL khi cần); GUI chỉ ẩn menu.
+- **Audit**: thao tác nhạy cảm qua `AuditService`; **luồng xem log** trong `project_Workflow.md`.
+- **Tồn kho**: nhập/bán/điều chỉnh dùng **transaction**.
+
+---
+
+## 8. Kiến trúc tầng
+
+- **Presentation**: WinForms — điều hướng, binding; **không** SQL trực tiếp trong form.
+- **Business**: `Pharmacy.BLL` — luật nghiệp vụ, transaction, kiểm tra quyền.
+- **Data access**: `Pharmacy.DAL` — SQL Server, command/query, transaction khi phù hợp.
+- **DTO**: `Pharmacy.DTO` — không logic nghiệp vụ.
+- **Common**: `UserSession`, mật khẩu, validate, log.
+- **Database**: `SQL/` ở gốc workspace.
 
 ```mermaid
 flowchart LR
@@ -188,53 +247,111 @@ flowchart LR
 
 ---
 
-## 7. Nghiệp vụ then chốt
+## 9. Nghiệp vụ phần mềm (đầy đủ — tổng thể & dữ liệu)
 
-- **Bán hàng**: hóa đơn, chi tiết, tồn kho real-time hoặc theo batch tùy thiết kế; nhất quán số lượng và giá.
-- **Nhập kho**: phiếu nhập, cập nhật tồn, lô / hạn dùng nếu có.
-- **FEFO**: xuất kho ưu tiên theo nguyên tắc **First Expired, First Out** khi có nhiều lô.
-- **Kiểm kê**: đối soát tồn thực tế và sổ sách (form/module TODO nếu chưa có).
-- **Cảnh báo hết hạn**: tách UI cảnh báo (màu cam/đỏ theo mục 4).
-- **Audit**: ghi nhận thao tác nhạy cảm (xóa/sửa giá/số lượng quan trọng, phân quyền) theo `AuditService` / `FrmAuditLog`.
+### 9.1. Phạm vi
+
+Quản lý nhà thuốc: **nhập kho** theo phiếu (tách chứng từ / cộng tồn), **danh mục thuốc** (liên quan **DQG**), **bán thuốc theo toa** / kê đơn, **tồn theo lô**, **doanh thu**, **nhân viên**, **báo cáo**, **audit**. Chi tiết bước xử lý (FEFO, DQG, nút Nhập kho, kê đơn…) trong **`project_Workflow.md`**.
+
+### 9.2. Bán hàng & tồn
+
+- Hóa đơn (hoặc phiếu bán theo toa), chi tiết, đồng bộ SL và giá với tồn **theo lô** khi có nhiều lô.
+- **FEFO**: khi nhiều lô — luồng và thuật toán trong Workflow.
+
+### 9.3. Nhập kho — ý tưởng nghiệp vụ
+
+- **Lập phiếu** (`PhieuNhapKho`) và **dòng chi tiết** (`ChiTietPhieuNhap`) **trước** khi cộng tồn; chỉ khi trạng thái chuyển **Đã nhập kho** mới ghi nhận tồn và lịch sử kho (transaction — Workflow).
+
+**Gợi ý cột `PhieuNhapKho`**
+
+| Cột | Ý nghĩa |
+|-----|---------|
+| `MaPhieuNhap` | Mã phiếu |
+| `SoHoaDon` | Số hóa đơn NCC |
+| `LoaiPhieuNhap` | Nhập NCC / nhập tồn (hoặc tương đương) |
+| `NgayNhap` | Ngày nhập |
+| `NgayHoaDon` | Ngày hóa đơn |
+| `MaNhanVien` | Thủ kho nhập |
+| `MaKho` | Kho nhập |
+| `MaNhaCungCap` | Nhà cung cấp |
+| `PhuongTienVC` | Phương tiện vận chuyển |
+| `DonViVC` | Đơn vị vận chuyển |
+| `NguoiGiaoHang` | Người giao |
+| `VAT` | VAT |
+| `ChietKhau` | Chiết khấu |
+| `CongNo` | Công nợ |
+| `GhiChu` | Ghi chú |
+| `TrangThai` | Tạm / Lưu / Đã nhập kho (hoặc chuẩn hóa tương đương) |
+
+**Gợi ý cột `ChiTietPhieuNhap`**
+
+| Cột | Ý nghĩa |
+|-----|---------|
+| `MaCTPN` | ID chi tiết |
+| `MaPhieuNhap` | FK phiếu nhập |
+| `MaThuoc` | Thuốc |
+| `SoLuongNhap` | Số lượng |
+| `GiaNhap` | Giá nhập |
+| `GiaBan` | Giá bán |
+| `SoLo` | Số lô |
+| `HanSuDung` | HSD |
+| `VAT` | VAT |
+| `ThanhTien` | Thành tiền |
+
+### 9.4. Thêm hàng hóa (ngoài phiếu)
+
+- Thuốc **DQG / liên thông**: bắt buộc các trường theo chính sách (số đăng ký, mã DQG, hoạt chất, hàm lượng, đơn vị, hãng SX…).
+- Hàng **không DQG**: tối thiểu tên, đơn vị, giá, VAT, nhóm hàng — luồng lưu trong Workflow.
+
+### 9.5. Cảnh báo & báo cáo
+
+- **Cảnh báo** tồn thấp, sắp hết hạn, đã hết hạn — màu mục **3.2**, nguồn view/query (ví dụ `View_PharmacyManagement.sql`).
+- **Báo cáo thuốc**: danh mục, tồn lô, bán chạy/chậm — qua BLL/view/SP.
+
+### 9.6. Audit
+
+Ghi các thao tác nhạy cảm: duyệt nhập kho, sửa giá/SL, phân quyền… — service + màn **8** trong menu.
 
 ---
 
-## 8. Phân quyền cơ bản
+## 10. Phân quyền cơ bản (theo đề tài & mở rộng)
 
-**Vai trò**: Admin · Quản lý · Dược sĩ · Nhân viên kho.
+**Vai trò chính**: **Admin** · **Kho** · **Dược sĩ**. Có thể giữ legacy **Quản lý** trong DB — map sang Admin hoặc tách khi làm rõ nghiệp vụ.
 
-| Chức năng | Admin | Quản lý | Dược sĩ | Kho |
-|-----------|:-----:|:-------:|:-------:|:---:|
-| Bán thuốc | Có | Có | Có | Không |
-| Nhập kho | Có | Có | Không | Có |
-| Quản lý thuốc | Có | Có | Xem | Có |
-| Báo cáo | Có | Có | Không | Không |
-| Nhân viên | Có | Không | Không | Không |
-| Audit Log | Có | Có | Không | Không |
+| Chức năng (theo menu §2.1) | Admin | Kho | Dược sĩ |
+|----------------------------|:-----:|:---:|:-------:|
+| 1. Dashboard | Có | Không | Không |
+| 2. Quản lý kho | Có | Có | Không |
+| 3. Thêm hàng hóa | Có | Có | Không |
+| 4. Kê đơn bán thuốc | Không | Không | Có |
+| 5. Quản lý doanh thu | Có | Không | Không |
+| 6. Quản lý nhân viên | Có | Không | Không |
+| 7a. Cảnh báo hết hàng/hết hạn | Có | Có | Có |
+| 7b. Báo cáo thuốc | Có | Không | Không |
+| 8. Audit log | Có | Không | Không |
 
-**Khuyến nghị triển khai**
-
-- Kiểm tra quyền ở **BLL** (và tái kiểm ở DAL nếu cần an toàn sâu); GUI **ẩn / vô hiệu hóa** menu theo `UserSession` (hoặc enum role tương đương).
-- Không dựa hoàn toàn vào “ẩn nút” — luôn từ chối thao tác trái quyền ở tầng nghiệp vụ.
-
----
-
-## 9. Quy tắc làm việc cho developer / agent
-
-1. Đọc **toàn bộ** các mục liên quan trong `project_Context.md` trước khi sửa code.
-2. Nếu thay đổi schema: cập nhật `SQL/*.sql` trước hoặc đồng bộ với migration nội bộ của team.
-3. Thứ tự chỉnh sửa gợi ý: **Context** → **DTO** (nếu đổi hợp đồng dữ liệu) → **DAL** → **BLL** → **GUI**.
-4. Giao dịch **nhập/bán/điều chỉnh tồn**: dùng transaction (BLL điều phối hoặc DAL tùy chuẩn đội) để tránh lệch tồn.
-5. Thao tác nhạy cảm: ghi **audit** theo quy ước dự án.
-6. UI mới: tuân màu/font/bố cục mục 4–5.
-7. Không thêm package mới mà không cập nhật mục 3 (và changelog/PR).
+**Khuyến nghị**: kiểm tra quyền ở **BLL**; GUI ẩn menu theo `UserSession`; không tin hoàn toàn vào “ẩn nút”.
 
 ---
 
-## 10. Cập nhật tài liệu
+## 11. Quy tắc làm việc cho developer / agent
 
-Mọi thay đổi đáng kể về cấu trúc thư mục, menu, phân quyền, stack hoặc quy trình nghiệp vụ phải được phản ánh trong **chính file này** cùng với thay đổi code.
+1. Đọc **`project_Context.md`** (đủ) và **`project_Workflow.md`** (phần luồng liên quan) trước khi sửa code.
+2. Đổi schema: cập nhật `SQL/*.sql` hoặc migration nội bộ.
+3. Thứ tự gợi ý: **Context/Workflow** → **DTO** → **DAL** → **BLL** → **GUI**.
+4. Nhập/bán/điều chỉnh tồn: **transaction**.
+5. Thao tác nhạy cảm: **audit**.
+6. UI mới: tuân **mục 3** (màu/font/bố cục).
+7. Package mới: cập nhật **mục 5** + PR.
 
 ---
 
-*Phiên bản tài liệu: 1.0 — đồng bộ với kế hoạch `project_Context.md` (ngữ cảnh ưu tiên nghiệp vụ).*
+## 12. Cập nhật tài liệu
+
+- **Menu, ánh xạ form, thư mục, UX, stack, tích hợp, bảo mật, ma trận quyền, mô tả nghiệp vụ & bảng dữ liệu gợi ý** → **`project_Context.md`**.
+- **Chỉ luồng bước hoạt động / thứ tự logic** (đăng nhập, FEFO, DQG, nhập kho, kê đơn, báo cáo, audit…) → **`project_Workflow.md`**.
+- Thay đổi vừa menu vừa luồng → cập nhật **cả hai**.
+
+---
+
+*Phiên bản Context: 3.0 — menu + UX + cấu trúc thư mục khớp sidebar 1–8; Workflow chỉ còn luồng hoạt động.*

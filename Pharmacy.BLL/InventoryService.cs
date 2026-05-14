@@ -10,14 +10,18 @@ public class InventoryService
     public InventoryService(DbContextDAL db) =>
         _phieuNhap = new PhieuNhapRepositoryDAL(db);
 
-    /// <summary>Nhập kho qua sp_NhapKho.</summary>
+    /// <summary>Nhập kho qua sp_NhapKho (phiếu Đang lập → chi tiết → Đã nhập kho, cộng lô).</summary>
     public int NhapKho(
         int maThuoc,
         int soLuongNhap,
         decimal donGiaNhap,
         DateTime? hanSuDung,
         string? nhaCungCap,
-        string? ghiChu)
+        string? ghiChu,
+        int? maKho = null,
+        string? soLo = null,
+        decimal? giaBanDong = null,
+        string? viTri = null)
     {
         BllAuthorization.RequireAnyRole(VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho);
         if (!UserSession.MaNhanVien.HasValue)
@@ -34,6 +38,10 @@ public class InventoryService
             donGiaNhap,
             hanSuDung,
             nhaCungCap,
-            ghiChu);
+            ghiChu,
+            maKho,
+            soLo,
+            giaBanDong,
+            viTri);
     }
 }
