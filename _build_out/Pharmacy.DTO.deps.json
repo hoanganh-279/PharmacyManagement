@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "Pharmacy.DTO/1.0.0": {
+        "runtime": {
+          "Pharmacy.DTO.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "Pharmacy.DTO/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}

@@ -1,0 +1,13 @@
+---
+description: Ưu tiên đọc project_Context.md trước khi thêm/sửa chức năng PharmacyManagement
+alwaysApply: true
+---
+
+# Ngữ cảnh dự án PharmacyManagement
+
+Trước khi thiết kế hoặc chỉnh sửa code trong workspace này:
+
+1. Đọc `project_Context.md` ở **gốc workspace** (cùng cấp với thư mục con `PharmacyManagement/` chứa `.csproj`).
+2. Tuân thủ kiến trúc tầng, phân quyền, UI và stack được mô tả trong đó; nếu lệch khỏi tài liệu, cập nhật `project_Context.md` trong cùng thay đổi.
+
+Đường dẫn đầy đủ (Windows): `e:\LT_WIN\PharmacyManagement\project_Context.md`.
