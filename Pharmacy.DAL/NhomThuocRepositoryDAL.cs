@@ -38,8 +38,8 @@ public class NhomThuocRepositoryDAL
     {
         const string sql = """
             INSERT INTO NhomThuoc(TenNhomThuoc, MoTa, TrangThai)
-            OUTPUT INSERTED.MaNhomThuoc
             VALUES (@TenNhomThuoc, @MoTa, @TrangThai);
+            SELECT CAST(SCOPE_IDENTITY() AS INT);
             """;
 
         using var cn = _db.CreateConnection();

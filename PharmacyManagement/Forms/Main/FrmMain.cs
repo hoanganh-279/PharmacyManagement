@@ -4,6 +4,8 @@ using System.Reflection;
 using Pharmacy.BLL;
 using Pharmacy.Common;
 using Pharmacy.DAL;
+using PharmacyManagement.Forms.Product;
+using PharmacyManagement.Forms.Report;
 using PharmacyManagement.Helpers;
 
 namespace PharmacyManagement.Forms.Main;
@@ -52,6 +54,10 @@ public partial class FrmMain : Form
     private Color _avatarColor = Primary;
 
     private FrmDashboard _dashboardForm;
+    private FrmThemHangHoa _ThemHangHoaForm;
+    private FrmBaoCao _baoCaoHostForm;
+    private FrmCanhBaoThuoc _canhBaoForm;
+    private FrmBaoCaoThuoc _baoCaoThuocForm;
 
     public bool ReLoginRequested { get; private set; }
 
@@ -66,12 +72,12 @@ public partial class FrmMain : Form
             new("kho_phieu", "Thông tin phiếu nhập kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
             new("kho_ds", "Danh sách hàng nhập kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
         ]),
-        new("hang", "Thêm hàng hóa", [VaiTroTen.Admin, VaiTroTen.NhanVienKho], null),
+        new("hang", "Thêm hàng hóa", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho], null),
         new("kedon", "Kê đơn bán thuốc", [VaiTroTen.DuocSi], null),
         new("doanhthu", "Quản lý doanh thu", [VaiTroTen.Admin, VaiTroTen.QuanLy], null),
         new("nv", "Quản lý nhân viên", [VaiTroTen.Admin], null),
         new("bc", "Báo cáo", [], [
-            new("bc_canh", "Cảnh báo tồn / hạn", []),
+            new("bc_canh", "Cảnh báo tồn / hạn", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho, VaiTroTen.DuocSi]),
             new("bc_thuoc", "Báo cáo thuốc", [VaiTroTen.Admin, VaiTroTen.QuanLy]),
         ], true),
         new("audit", "Audit log", [VaiTroTen.Admin, VaiTroTen.QuanLy], null),
@@ -551,6 +557,61 @@ public partial class FrmMain : Form
             return;
         }
 
+        if (key == "hang")
+        {
+            _ThemHangHoaForm = new FrmThemHangHoa
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill
+            };
+
+            _contentHost.Controls.Add(_ThemHangHoaForm);
+            _ThemHangHoaForm.Show();
+
+            return;
+        }
+
+        if (key == "bc")
+        {
+            _baoCaoHostForm = new FrmBaoCao
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill,
+                OnNavigateToChild = childKey => SelectNav(childKey)
+            };
+            _contentHost.Controls.Add(_baoCaoHostForm);
+            _baoCaoHostForm.Show();
+            return;
+        }
+
+        if (key == "bc_canh")
+        {
+            _canhBaoForm = new FrmCanhBaoThuoc
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill
+            };
+            _contentHost.Controls.Add(_canhBaoForm);
+            _canhBaoForm.Show();
+            return;
+        }
+
+        if (key == "bc_thuoc")
+        {
+            _baoCaoThuocForm = new FrmBaoCaoThuoc
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill
+            };
+            _contentHost.Controls.Add(_baoCaoThuocForm);
+            _baoCaoThuocForm.Show();
+            return;
+        }
+
         var ph = new Panel { Dock = DockStyle.Fill, BackColor = _contentHost.BackColor };
         var msg = new Label
         {
@@ -586,6 +647,10 @@ public partial class FrmMain : Form
             c.Dispose();
         _contentHost.Controls.Clear();
         _dashboardForm = null;
+        _ThemHangHoaForm = null;
+        _baoCaoHostForm = null;
+        _canhBaoForm = null;
+        _baoCaoThuocForm = null;
     }
 
     private void BtnLogout_Click(object sender, EventArgs e)

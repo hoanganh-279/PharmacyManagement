@@ -13,7 +13,7 @@ public class HoaDonRepositoryDAL
         int maNhanVien,
         int maThuoc,
         int soLuongBan,
-        string? tenKhachHang,
+        string? CCCD,
         string? soDienThoai,
         decimal giamGia,
         string? hinhThucThanhToan)
@@ -23,7 +23,7 @@ public class HoaDonRepositoryDAL
         cmd.Parameters.AddWithValue("@MaNhanVien", maNhanVien);
         cmd.Parameters.AddWithValue("@MaThuoc", maThuoc);
         cmd.Parameters.AddWithValue("@SoLuongBan", soLuongBan);
-        cmd.Parameters.AddWithValue("@TenKhachHang", (object?)tenKhachHang ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@CCCD", (object?)CCCD ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@SoDienThoai", (object?)soDienThoai ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@GiamGia", giamGia);
         cmd.Parameters.AddWithValue("@HinhThucThanhToan", (object?)hinhThucThanhToan ?? DBNull.Value);

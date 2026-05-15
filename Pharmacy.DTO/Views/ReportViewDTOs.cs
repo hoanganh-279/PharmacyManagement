@@ -137,3 +137,21 @@ public class AuditLogChiTietViewDTO
     public string? NoiDung { get; set; }
     public string? DiaChiMay { get; set; }
 }
+
+public class TraCuuDanhMucDQGViewDTO
+{
+    public int MaDQG { get; set; }
+    public string? MaDQGDonVi { get; set; }
+    public string TenHangHoa { get; set; } = string.Empty;
+    public string? SoDangKy { get; set; }
+    public string? HoatChatChinh { get; set; }
+    public string? HoatChatDangKy { get; set; }
+    public string? HamLuong { get; set; }
+    public string? DongGoi { get; set; }
+    public string? HangSanXuat { get; set; }
+    public string? NuocSanXuat { get; set; }
+    public string? DonViTinh { get; set; }
+    public string TrangThaiNhapKho { get; set; } = string.Empty;
+    public int? MaThuoc { get; set; }
+    public int? SoLuongTon { get; set; }
+}

@@ -44,7 +44,7 @@ public class ThuocRepositoryDAL
     {
         const string sql = """
             SELECT MaThuoc, TenThuoc, HoatChat, HamLuong, DonViTinh, GiaNhap, GiaBan, SoLuongTon, TonToiThieu,
-                   HanSuDung, MaNhomThuoc, TrangThai, NgayTao
+                   HanSuDung, MaNhomThuoc, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi, TrangThai, NgayTao
             FROM Thuoc WHERE MaThuoc = @MaThuoc;
             """;
 
@@ -59,12 +59,34 @@ public class ThuocRepositoryDAL
         return MapThuoc(rd);
     }
 
+    public bool TonTaiTheoTen(string tenThuoc, int? maDQG, int? loaiTruMa = null)
+    {
+        const string sql = """
+            SELECT TOP 1 1
+            FROM Thuoc
+            WHERE (LOWER(LTRIM(RTRIM(TenThuoc))) = LOWER(LTRIM(RTRIM(@TenThuoc)))
+                   OR (@MaDQG IS NOT NULL AND MaDQG = @MaDQG))
+              AND (@LoaiTru IS NULL OR MaThuoc <> @LoaiTru);
+            """;
+
+        using var cn = _db.CreateConnection();
+        using var cmd = new SqlCommand(sql, cn);
+        cmd.Parameters.AddWithValue("@TenThuoc", tenThuoc);
+        cmd.Parameters.AddWithValue("@MaDQG", (object?)maDQG ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@LoaiTru", (object?)loaiTruMa ?? DBNull.Value);
+        cn.Open();
+        var result = cmd.ExecuteScalar();
+        return result is not null && result is not DBNull;
+    }
+
     public int Them(ThuocDTO t)
     {
         const string sql = """
-            INSERT INTO Thuoc(TenThuoc, HoatChat, HamLuong, DonViTinh, GiaNhap, GiaBan, SoLuongTon, TonToiThieu, HanSuDung, MaNhomThuoc, TrangThai)
-            OUTPUT INSERTED.MaThuoc
-            VALUES (@TenThuoc, @HoatChat, @HamLuong, @DonViTinh, @GiaNhap, @GiaBan, @SoLuongTon, @TonToiThieu, @HanSuDung, @MaNhomThuoc, @TrangThai);
+            INSERT INTO Thuoc(TenThuoc, HoatChat, HamLuong, DonViTinh, GiaNhap, GiaBan, SoLuongTon, TonToiThieu,
+                              HanSuDung, MaNhomThuoc, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi, TrangThai)
+            VALUES (@TenThuoc, @HoatChat, @HamLuong, @DonViTinh, @GiaNhap, @GiaBan, @SoLuongTon, @TonToiThieu,
+                    @HanSuDung, @MaNhomThuoc, @MaDQG, @SoDangKy, @HangSanXuat, @NuocSanXuat, @DongGoi, @TrangThai);
+            SELECT CAST(SCOPE_IDENTITY() AS INT);
             """;
 
         using var cn = _db.CreateConnection();
@@ -78,7 +100,9 @@ public class ThuocRepositoryDAL
     {
         const string sql = """
             UPDATE Thuoc SET TenThuoc=@TenThuoc, HoatChat=@HoatChat, HamLuong=@HamLuong, DonViTinh=@DonViTinh,
-                GiaNhap=@GiaNhap, GiaBan=@GiaBan, TonToiThieu=@TonToiThieu, HanSuDung=@HanSuDung, MaNhomThuoc=@MaNhomThuoc, TrangThai=@TrangThai
+                GiaNhap=@GiaNhap, GiaBan=@GiaBan, TonToiThieu=@TonToiThieu, HanSuDung=@HanSuDung,
+                MaNhomThuoc=@MaNhomThuoc, MaDQG=@MaDQG, SoDangKy=@SoDangKy, HangSanXuat=@HangSanXuat,
+                NuocSanXuat=@NuocSanXuat, DongGoi=@DongGoi, TrangThai=@TrangThai
             WHERE MaThuoc=@MaThuoc;
             """;
 
@@ -113,6 +137,11 @@ public class ThuocRepositoryDAL
         cmd.Parameters.AddWithValue("@TonToiThieu", t.TonToiThieu);
         cmd.Parameters.AddWithValue("@HanSuDung", (object?)t.HanSuDung ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@MaNhomThuoc", t.MaNhomThuoc);
+        cmd.Parameters.AddWithValue("@MaDQG", (object?)t.MaDQG ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@SoDangKy", (object?)t.SoDangKy ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@HangSanXuat", (object?)t.HangSanXuat ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@NuocSanXuat", (object?)t.NuocSanXuat ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@DongGoi", (object?)t.DongGoi ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@TrangThai", t.TrangThai);
     }
 
@@ -129,6 +158,11 @@ public class ThuocRepositoryDAL
         TonToiThieu = rd.GetInt32("TonToiThieu"),
         HanSuDung = rd.GetNullableDateTime("HanSuDung"),
         MaNhomThuoc = rd.GetInt32("MaNhomThuoc"),
+        MaDQG = rd.GetNullableInt32("MaDQG"),
+        SoDangKy = rd.GetNullableString("SoDangKy"),
+        HangSanXuat = rd.GetNullableString("HangSanXuat"),
+        NuocSanXuat = rd.GetNullableString("NuocSanXuat"),
+        DongGoi = rd.GetNullableString("DongGoi"),
         TrangThai = rd.GetBoolean("TrangThai"),
         NgayTao = rd.GetDateTime("NgayTao")
     };

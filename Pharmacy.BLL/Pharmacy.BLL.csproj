@@ -1,6 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.1" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Pharmacy.Common\Pharmacy.Common.csproj" />
     <ProjectReference Include="..\Pharmacy.DAL\Pharmacy.DAL.csproj" />
     <ProjectReference Include="..\Pharmacy.DTO\Pharmacy.DTO.csproj" />

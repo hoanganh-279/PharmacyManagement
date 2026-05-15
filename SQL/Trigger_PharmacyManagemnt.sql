@@ -1,6 +1,10 @@
 USE PharmacyManagement;
 GO
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 /*
   Thứ tự chạy script (đồng bộ project_Context.md):
   1) SQL/PharmacyManagement.sql  — DB, bảng, index, SP, seed
@@ -41,6 +45,122 @@ GO
 
 IF COL_LENGTH(N'dbo.ChiTietPhieuNhap', N'VAT') IS NULL
     ALTER TABLE dbo.ChiTietPhieuNhap ADD VAT DECIMAL(5,2) NULL;
+GO
+
+/* --- Nâng cấp: KhachHang(CCCD PK) + HoaDon.CCCD FK (thay MaKhachHang / snapshot) --- */
+IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_HoaDon_KhachHang' AND parent_object_id = OBJECT_ID(N'dbo.HoaDon'))
+    ALTER TABLE dbo.HoaDon DROP CONSTRAINT FK_HoaDon_KhachHang;
+GO
+
+IF COL_LENGTH(N'dbo.HoaDon', N'MaKhachHang') IS NOT NULL
+    ALTER TABLE dbo.HoaDon DROP COLUMN MaKhachHang;
+GO
+
+IF COL_LENGTH(N'dbo.HoaDon', N'TenKhachHang') IS NOT NULL
+    ALTER TABLE dbo.HoaDon DROP COLUMN TenKhachHang;
+GO
+
+IF COL_LENGTH(N'dbo.HoaDon', N'SoDienThoai') IS NOT NULL
+    ALTER TABLE dbo.HoaDon DROP COLUMN SoDienThoai;
+GO
+
+IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_HoaDon_MaKhachHang' AND object_id = OBJECT_ID(N'dbo.HoaDon'))
+    DROP INDEX IX_HoaDon_MaKhachHang ON dbo.HoaDon;
+GO
+
+IF COL_LENGTH(N'dbo.KhachHang', N'MaKhachHang') IS NOT NULL
+BEGIN
+    DROP TABLE dbo.KhachHang;
+END;
+GO
+
+IF OBJECT_ID(N'dbo.KhachHang', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.KhachHang (
+        CCCD CHAR(12) NOT NULL,
+        HoTen NVARCHAR(100) NOT NULL,
+        SoDienThoai VARCHAR(15) NULL,
+        NgaySinh DATE NULL,
+        DiaChi NVARCHAR(255) NULL,
+        GhiChu NVARCHAR(255) NULL,
+        TrangThai BIT NOT NULL CONSTRAINT DF_KhachHang_TrangThai DEFAULT 1,
+        NgayTao DATETIME NOT NULL CONSTRAINT DF_KhachHang_NgayTao DEFAULT GETDATE(),
+        CONSTRAINT PK_KhachHang PRIMARY KEY (CCCD),
+        CONSTRAINT CK_KhachHang_CCCD CHECK (CCCD NOT LIKE '%[^0-9]%' AND LEN(CCCD) = 12),
+        CONSTRAINT CK_KhachHang_HoTen CHECK (LEN(LTRIM(RTRIM(HoTen))) > 0)
+    );
+END;
+GO
+
+IF COL_LENGTH(N'dbo.HoaDon', N'CCCD') IS NULL
+    ALTER TABLE dbo.HoaDon ADD CCCD CHAR(12) NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = N'FK_HoaDon_KhachHang')
+BEGIN
+    ALTER TABLE dbo.HoaDon WITH NOCHECK ADD CONSTRAINT FK_HoaDon_KhachHang
+        FOREIGN KEY (CCCD) REFERENCES dbo.KhachHang(CCCD);
+    ALTER TABLE dbo.HoaDon CHECK CONSTRAINT FK_HoaDon_KhachHang;
+END;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_HoaDon_CCCD')
+    ALTER TABLE dbo.HoaDon ADD CONSTRAINT CK_HoaDon_CCCD
+        CHECK (CCCD IS NULL OR (CCCD NOT LIKE '%[^0-9]%' AND LEN(CCCD) = 12));
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_KhachHang_HoTen' AND object_id = OBJECT_ID(N'dbo.KhachHang'))
+    CREATE INDEX IX_KhachHang_HoTen ON dbo.KhachHang(HoTen) INCLUDE (SoDienThoai, DiaChi, TrangThai);
+GO
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_HoaDon_CCCD' AND object_id = OBJECT_ID(N'dbo.HoaDon'))
+    CREATE INDEX IX_HoaDon_CCCD ON dbo.HoaDon(CCCD) INCLUDE (NgayLap, ThanhTien, TrangThai) WHERE CCCD IS NOT NULL;
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '079085001234')
+    INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi)
+    VALUES ('079085001234', N'Nguyễn Văn An', '0901000001', '1985-03-12', N'Quận 1, TP.HCM');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '079085001235')
+    INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi)
+    VALUES ('079085001235', N'Nguyễn Văn An', '0901000002', '1992-07-25', N'Quận 7, TP.HCM');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '079085001236')
+    INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi)
+    VALUES ('079085001236', N'Trần Thị Mai', '0912000003', '1978-11-08', N'Quận 3, TP.HCM');
+GO
+
+IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '079085001237')
+    INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi)
+    VALUES ('079085001237', N'Lê Hoàng Nam', '0988000004', '2000-01-15', N'Quận Bình Thạnh, TP.HCM');
+GO
+
+IF OBJECT_ID(N'dbo.trg_HoaDon_KiemTraCCCD', N'TR') IS NULL
+    EXEC(N'
+CREATE TRIGGER dbo.trg_HoaDon_KiemTraCCCD
+ON dbo.HoaDon
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    IF EXISTS (
+        SELECT 1 FROM inserted i
+        WHERE i.CCCD IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM dbo.KhachHang kh WHERE kh.CCCD = i.CCCD AND kh.TrangThai = 1)
+    )
+        THROW 51010, N''CCCD trên hóa đơn phải tồn tại trong KhachHang và TrangThai = 1.'', 1;
+END;
+');
+GO
+
+IF OBJECT_ID(N'dbo.sp_BanThuoc', N'P') IS NOT NULL
+   AND NOT EXISTS (
+        SELECT 1 FROM sys.parameters p
+        WHERE p.object_id = OBJECT_ID(N'dbo.sp_BanThuoc') AND p.name = N'@CCCD'
+   )
+    DROP PROCEDURE dbo.sp_BanThuoc;
 GO
 
 IF NOT EXISTS (
@@ -280,12 +400,12 @@ BEGIN
         SELECT 1
         FROM inserted i
         JOIN PhieuNhap pn ON i.MaPhieuNhap = pn.MaPhieuNhap
-        WHERE pn.TrangThai = N'Đã nhập kho'
+        WHERE pn.TrangThai = dbo.fn_TrangThai_DaNhapKho()
         UNION
         SELECT 1
         FROM deleted d
         JOIN PhieuNhap pn ON d.MaPhieuNhap = pn.MaPhieuNhap
-        WHERE pn.TrangThai = N'Đã nhập kho'
+        WHERE pn.TrangThai = dbo.fn_TrangThai_DaNhapKho()
     )
     BEGIN
         THROW 52010, N'Phiếu đã nhập kho, không được sửa chi tiết phiếu nhập.', 1;
@@ -364,8 +484,8 @@ BEGIN
         SELECT 1
         FROM inserted i
         JOIN deleted d ON i.MaPhieuNhap = d.MaPhieuNhap
-        WHERE i.TrangThai = N'Đã nhập kho'
-          AND ISNULL(d.TrangThai, N'') <> N'Đã nhập kho'
+        WHERE i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
+          AND ISNULL(d.TrangThai, N'') <> dbo.fn_TrangThai_DaNhapKho()
     )
         RETURN;
 
@@ -373,7 +493,7 @@ BEGIN
         SELECT 1
         FROM inserted i
         LEFT JOIN ChiTietPhieuNhap ct ON i.MaPhieuNhap = ct.MaPhieuNhap
-        WHERE i.TrangThai = N'Đã nhập kho'
+        WHERE i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
           AND ct.MaCTPN IS NULL
     )
     BEGIN
@@ -382,7 +502,7 @@ BEGIN
 
     IF EXISTS (
         SELECT 1 FROM inserted i
-        WHERE i.TrangThai = N'Đã nhập kho'
+        WHERE i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
           AND i.MaKho IS NULL
     )
     BEGIN
@@ -393,7 +513,7 @@ BEGIN
         SELECT 1
         FROM inserted i
         JOIN ChiTietPhieuNhap ct ON i.MaPhieuNhap = ct.MaPhieuNhap
-        WHERE i.TrangThai = N'Đã nhập kho'
+        WHERE i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
           AND (
                 ct.SoLo IS NULL OR LTRIM(RTRIM(ct.SoLo)) = ''
                 OR ct.HanSuDung IS NULL
@@ -416,8 +536,8 @@ BEGIN
         FROM inserted i
         JOIN deleted d ON i.MaPhieuNhap = d.MaPhieuNhap
         JOIN ChiTietPhieuNhap ct ON i.MaPhieuNhap = ct.MaPhieuNhap
-        WHERE i.TrangThai = N'Đã nhập kho'
-          AND ISNULL(d.TrangThai, N'') <> N'Đã nhập kho'
+        WHERE i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
+          AND ISNULL(d.TrangThai, N'') <> dbo.fn_TrangThai_DaNhapKho()
         GROUP BY ct.MaThuoc, i.MaKho, ct.SoLo, ct.HanSuDung
     )
     UPDATE lt
@@ -447,8 +567,8 @@ BEGIN
         FROM inserted i
         JOIN deleted d ON i.MaPhieuNhap = d.MaPhieuNhap
         JOIN ChiTietPhieuNhap ct ON i.MaPhieuNhap = ct.MaPhieuNhap
-        WHERE i.TrangThai = N'Đã nhập kho'
-          AND ISNULL(d.TrangThai, N'') <> N'Đã nhập kho'
+        WHERE i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
+          AND ISNULL(d.TrangThai, N'') <> dbo.fn_TrangThai_DaNhapKho()
         GROUP BY ct.MaThuoc, i.MaKho, ct.SoLo, ct.HanSuDung
     )
     INSERT INTO LoThuoc (MaThuoc, MaKho, SoLo, HanSuDung, SoLuongTon, GiaNhap, GiaBan, ViTri, TrangThai)
@@ -479,14 +599,14 @@ BEGIN
         FROM ChiTietPhieuNhap ct
         JOIN inserted i ON ct.MaPhieuNhap = i.MaPhieuNhap
         WHERE ct.MaThuoc = t.MaThuoc
-          AND i.TrangThai = N'Đã nhập kho'
+          AND i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
         ORDER BY ct.MaCTPN DESC
     ) y
     WHERE t.MaThuoc IN (
         SELECT ct.MaThuoc
         FROM ChiTietPhieuNhap ct
         JOIN inserted i ON ct.MaPhieuNhap = i.MaPhieuNhap
-        WHERE i.TrangThai = N'Đã nhập kho'
+        WHERE i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
     );
 
     INSERT INTO AuditLog(MaNhanVien, HanhDong, TenBang, MaBanGhi, NoiDung)
@@ -498,8 +618,8 @@ BEGIN
         N'Hoàn tất nhập kho phiếu nhập: ' + CAST(i.MaPhieuNhap AS NVARCHAR(50))
     FROM inserted i
     JOIN deleted d ON i.MaPhieuNhap = d.MaPhieuNhap
-    WHERE i.TrangThai = N'Đã nhập kho'
-      AND ISNULL(d.TrangThai, N'') <> N'Đã nhập kho';
+    WHERE i.TrangThai = dbo.fn_TrangThai_DaNhapKho()
+      AND ISNULL(d.TrangThai, N'') <> dbo.fn_TrangThai_DaNhapKho();
 END;
 GO
 
@@ -517,7 +637,7 @@ BEGIN
         SELECT 1
         FROM inserted i
         JOIN deleted d ON i.MaPhieuNhap = d.MaPhieuNhap
-        WHERE d.TrangThai = N'Đã nhập kho'
+        WHERE d.TrangThai = dbo.fn_TrangThai_DaNhapKho()
           AND (
                 ISNULL(i.SoHoaDon, '') <> ISNULL(d.SoHoaDon, '')
                 OR ISNULL(i.MaKho, 0) <> ISNULL(d.MaKho, 0)
@@ -762,7 +882,7 @@ GO
    ======================================================================== */
 
 UPDATE pn
-SET TrangThai = N'Đã nhập kho'
+SET TrangThai = dbo.fn_TrangThai_DaNhapKho()
 FROM PhieuNhap pn
 WHERE pn.TrangThai = N'Hoàn thành'
   AND pn.MaKho IS NOT NULL
@@ -787,6 +907,6 @@ WHERE pn.TrangThai = N'Hoàn thành'
   );
 
 UPDATE dbo.PhieuNhap
-SET TrangThai = N'Lưu'
+SET TrangThai = dbo.fn_TrangThai_Luu()
 WHERE TrangThai = N'Hoàn thành';
 GO

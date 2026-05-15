@@ -13,6 +13,13 @@ public class ThuocDTO
     public int TonToiThieu { get; set; }
     public DateTime? HanSuDung { get; set; }
     public int MaNhomThuoc { get; set; }
+
+    public int? MaDQG { get; set; }
+    public string? SoDangKy { get; set; }
+    public string? HangSanXuat { get; set; }
+    public string? NuocSanXuat { get; set; }
+    public string? DongGoi { get; set; }
+
     public bool TrangThai { get; set; }
     public DateTime NgayTao { get; set; }
 }
