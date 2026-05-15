@@ -10,35 +10,51 @@ public class ThuocRepositoryDAL
 
     public ThuocRepositoryDAL(DbContextDAL db) => _db = db;
 
-    public IReadOnlyList<DanhSachThuocViewDTO> LayTuViewDanhSach()
+    public IReadOnlyList<DanhSachThuocViewDTO> TimKiemTuView(string? tuKhoa)
     {
-        const string sql = "SELECT * FROM vw_DanhSachThuoc ORDER BY TenThuoc;";
+        const string sql = """
+            SELECT * FROM vw_DanhSachThuoc
+            WHERE (@TuKhoa IS NULL OR LTRIM(RTRIM(@TuKhoa)) = N''
+                OR TenThuoc LIKE N'%' + @TuKhoa + N'%'
+                OR HoatChat LIKE N'%' + @TuKhoa + N'%'
+                OR HamLuong LIKE N'%' + @TuKhoa + N'%'
+                OR DonViTinh LIKE N'%' + @TuKhoa + N'%'
+                OR TenNhomThuoc LIKE N'%' + @TuKhoa + N'%')
+            ORDER BY TenThuoc;
+            """;
+
         var list = new List<DanhSachThuocViewDTO>();
         using var cn = _db.CreateConnection();
         using var cmd = new SqlCommand(sql, cn);
+        cmd.Parameters.AddWithValue("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? DBNull.Value : tuKhoa.Trim());
         cn.Open();
         using var rd = cmd.ExecuteReader();
         while (rd.Read())
-        {
-            list.Add(new DanhSachThuocViewDTO
-            {
-                MaThuoc = rd.GetInt32("MaThuoc"),
-                TenThuoc = rd.GetString("TenThuoc"),
-                HoatChat = rd.GetNullableString("HoatChat"),
-                HamLuong = rd.GetNullableString("HamLuong"),
-                DonViTinh = rd.GetString("DonViTinh"),
-                TenNhomThuoc = rd.GetString("TenNhomThuoc"),
-                GiaNhap = rd.GetDecimal("GiaNhap"),
-                GiaBan = rd.GetDecimal("GiaBan"),
-                SoLuongTon = rd.GetInt32("SoLuongTon"),
-                TonToiThieu = rd.GetInt32("TonToiThieu"),
-                HanSuDung = rd.GetNullableDateTime("HanSuDung"),
-                TrangThai = rd.GetString("TrangThai")
-            });
-        }
+            list.Add(MapDanhSachThuoc(rd));
 
         return list;
     }
+
+    public IReadOnlyList<DanhSachThuocViewDTO> LayTuViewDanhSach()
+    {
+        return TimKiemTuView(null);
+    }
+
+    private static DanhSachThuocViewDTO MapDanhSachThuoc(SqlDataReader rd) => new()
+    {
+        MaThuoc = rd.GetInt32("MaThuoc"),
+        TenThuoc = rd.GetString("TenThuoc"),
+        HoatChat = rd.GetNullableString("HoatChat"),
+        HamLuong = rd.GetNullableString("HamLuong"),
+        DonViTinh = rd.GetString("DonViTinh"),
+        TenNhomThuoc = rd.GetString("TenNhomThuoc"),
+        GiaNhap = rd.GetDecimal("GiaNhap"),
+        GiaBan = rd.GetDecimal("GiaBan"),
+        SoLuongTon = rd.GetInt32("SoLuongTon"),
+        TonToiThieu = rd.GetInt32("TonToiThieu"),
+        HanSuDung = rd.GetNullableDateTime("HanSuDung"),
+        TrangThai = rd.GetString("TrangThai")
+    };
 
     public ThuocDTO? LayTheoMa(int maThuoc)
     {

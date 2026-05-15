@@ -23,6 +23,12 @@ public class MedicineService
         return _thuoc.LayTuViewDanhSach();
     }
 
+    public IReadOnlyList<DanhSachThuocViewDTO> TimKiemDanhSachThuoc(string? tuKhoa)
+    {
+        BllAuthorization.RequireAnyRole(VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho);
+        return _thuoc.TimKiemTuView(tuKhoa);
+    }
+
     public ThuocDTO? LayChiTietThuoc(int maThuoc)
     {
         BllAuthorization.RequireAnyRole(
@@ -60,6 +66,14 @@ public class MedicineService
     {
         BllAuthorization.RequireAnyRole(VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho);
         _thuoc.DatTrangThai(maThuoc, trangThai: false);
+    }
+
+    /// <summary>Ngừng kinh doanh thuốc (không xóa vật lý — giữ lịch sử nhập/bán).</summary>
+    public void XoaThuoc(int maThuoc)
+    {
+        if (maThuoc <= 0)
+            throw new ArgumentException("Mã thuốc không hợp lệ.");
+        NgungKinhDoanh(maThuoc);
     }
 
     public IReadOnlyList<NhomThuocDTO> LayNhomThuoc()

@@ -14,8 +14,7 @@ public class SalesService
     public int BanThuoc(
         int maThuoc,
         int soLuongBan,
-        string? tenKhachHang,
-        string? soDienThoai,
+        string? cccd = null,
         decimal giamGia = 0,
         string? hinhThucThanhToan = null)
     {
@@ -26,15 +25,20 @@ public class SalesService
             throw new ArgumentException("Số lượng bán phải > 0.");
         if (!Validator.IsNonNegativeDecimal(giamGia))
             throw new ArgumentException("Giảm giá không hợp lệ.");
-        if (!Validator.IsPhoneOptional(soDienThoai))
-            throw new ArgumentException("Số điện thoại không hợp lệ.");
+
+        string? cccdParam = null;
+        if (!string.IsNullOrWhiteSpace(cccd))
+        {
+            if (!Validator.TryNormalizeCccd(cccd, out var normalized))
+                throw new ArgumentException("CCCD phải gồm đúng 12 chữ số.");
+            cccdParam = normalized;
+        }
 
         return _hoaDon.BanThuoc(
             UserSession.MaNhanVien.Value,
             maThuoc,
             soLuongBan,
-            tenKhachHang,
-            soDienThoai,
+            cccdParam,
             giamGia,
             string.IsNullOrWhiteSpace(hinhThucThanhToan) ? "Tiền mặt" : hinhThucThanhToan);
     }
