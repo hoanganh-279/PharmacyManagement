@@ -215,7 +215,7 @@ public class ReportRepositoryDAL
                 MaHoaDon = rd.GetInt32("MaHoaDon"),
                 NgayLap = rd.GetDateTime("NgayLap"),
                 NhanVienBan = rd.GetString("NhanVienBan"),
-                TenKhachHang = rd.GetNullableString("TenKhachHang"),
+                TenKhachHang = rd.GetNullableString("HoTen"),
                 SoDienThoai = rd.GetNullableString("SoDienThoai"),
                 TenThuoc = rd.GetString("TenThuoc"),
                 SoLuongBan = rd.GetInt32("SoLuongBan"),
@@ -397,13 +397,14 @@ public class ReportRepositoryDAL
     {
         var sql = $"""
             SELECT TOP ({top})
-                MaHoaDon,
-                ISNULL(NULLIF(LTRIM(RTRIM(TenKhachHang)), N''), N'Khách lẻ') AS TenKhachHang,
-                NgayLap,
-                ThanhTien,
-                TrangThai
-            FROM HoaDon
-            ORDER BY NgayLap DESC;
+                hd.MaHoaDon,
+                ISNULL(kh.HoTen, N'Khách lẻ') AS TenKhachHang,
+                hd.NgayLap,
+                hd.ThanhTien,
+                hd.TrangThai
+            FROM HoaDon hd
+            LEFT JOIN KhachHang kh ON hd.CCCD = kh.CCCD
+            ORDER BY hd.NgayLap DESC;
             """;
 
         var list = new List<DashboardHoaDonGanDayDTO>();

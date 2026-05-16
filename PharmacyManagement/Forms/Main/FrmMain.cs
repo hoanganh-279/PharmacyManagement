@@ -5,7 +5,8 @@ using Pharmacy.BLL;
 using Pharmacy.Common;
 using Pharmacy.DAL;
 using PharmacyManagement.Helpers;
-
+using PharmacyManagement.Forms.Finance;
+using PharmacyManagement.Forms.Sales;
 namespace PharmacyManagement.Forms.Main;
 
 /// <summary>
@@ -548,6 +549,44 @@ public partial class FrmMain : Form
             _dashboardForm.OnShellQuickNavigate = ShellQuickNavigateFromDashboard;
             _contentHost.Controls.Add(_dashboardForm);
             _dashboardForm.Show();
+            return;
+        }
+        if (key == "doanhthu")
+        {
+            var frm = new FrmQuanLyDoanhThu
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill
+            };
+
+            _contentHost.Controls.Add(frm);
+            frm.Show();
+
+            return;
+        }
+        if (key == "bc_canh")
+        {
+            var frm = new PharmacyManagement.Forms.Report.FrmCanhBaoThuoc
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill
+            };
+            _contentHost.Controls.Add(frm);
+            frm.Show();
+            return;
+        }
+        if (key == "kedon")
+        {
+            var frm = new FrmKeDonBanThuoc
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill
+            };
+            _contentHost.Controls.Add(frm);
+            frm.Show();
             return;
         }
 

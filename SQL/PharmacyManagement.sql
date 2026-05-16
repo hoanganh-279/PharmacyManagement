@@ -10,6 +10,10 @@ GO
 USE PharmacyManagement;
 GO
 
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
+
 CREATE TABLE VaiTro (
     MaVaiTro INT IDENTITY(1,1) PRIMARY KEY,
     TenVaiTro NVARCHAR(50) NOT NULL UNIQUE,
@@ -178,21 +182,51 @@ CREATE TABLE LoThuoc (
     CONSTRAINT CK_LoThuoc_SoLuongTon CHECK (SoLuongTon >= 0)
 );
 
+/*
+  Luồng CSDL khách hàng / hóa đơn (CCCD làm định danh):
+  1) KhachHang: PRIMARY KEY = CCCD (12 chữ số). Một CCCD = một hồ sơ duy nhất.
+  2) Tra cứu: SELECT * FROM KhachHang WHERE CCCD = @cccd → hiển thị HoTen, SĐT, Địa chỉ trên GUI.
+  3) Chưa có CCCD: INSERT KhachHang rồi dùng CCCD vừa tạo cho các hóa đơn sau.
+  4) HoaDon: chỉ lưu CCCD (FK → KhachHang). Không denormalize tên/SĐT; JOIN hoặc VIEW khi in/ báo cáo.
+  5) Trigger trg_HoaDon_KiemTraCCCD: khi INSERT/UPDATE HoaDon có CCCD → khách phải tồn tại và TrangThai = 1.
+  6) Lịch sử mua: vw_LichSuMuaHangTheoCCCD / vw_HoaDon_ThongTinKhachHang WHERE CCCD = @cccd.
+*/
+CREATE TABLE KhachHang (
+    CCCD CHAR(12) NOT NULL,
+    HoTen NVARCHAR(100) NOT NULL,
+    SoDienThoai VARCHAR(15) NULL,
+    NgaySinh DATE NULL,
+    DiaChi NVARCHAR(255) NULL,
+    GhiChu NVARCHAR(255) NULL,
+    TrangThai BIT NOT NULL CONSTRAINT DF_KhachHang_TrangThai DEFAULT 1,
+    NgayTao DATETIME NOT NULL CONSTRAINT DF_KhachHang_NgayTao DEFAULT GETDATE(),
+
+    CONSTRAINT PK_KhachHang PRIMARY KEY (CCCD),
+    CONSTRAINT CK_KhachHang_CCCD
+        CHECK (CCCD NOT LIKE '%[^0-9]%' AND LEN(CCCD) = 12),
+    CONSTRAINT CK_KhachHang_HoTen
+        CHECK (LEN(LTRIM(RTRIM(HoTen))) > 0)
+);
+
 CREATE TABLE HoaDon (
     MaHoaDon INT IDENTITY(1,1) PRIMARY KEY,
-    NgayLap DATETIME NOT NULL DEFAULT GETDATE(),
+    NgayLap DATETIME NOT NULL CONSTRAINT DF_HoaDon_NgayLap DEFAULT GETDATE(),
     MaNhanVien INT NOT NULL,
-    TenKhachHang NVARCHAR(100),
-    SoDienThoai VARCHAR(15),
-    TongTien DECIMAL(18,2) NOT NULL DEFAULT 0,
-    GiamGia DECIMAL(18,2) NOT NULL DEFAULT 0,
-    ThanhTien DECIMAL(18,2) NOT NULL DEFAULT 0,
-    HinhThucThanhToan NVARCHAR(50) DEFAULT N'Tiền mặt',
-    TrangThai NVARCHAR(30) NOT NULL DEFAULT N'Hoàn thành',
+    CCCD CHAR(12) NULL,
+    TongTien DECIMAL(18,2) NOT NULL CONSTRAINT DF_HoaDon_TongTien DEFAULT 0,
+    GiamGia DECIMAL(18,2) NOT NULL CONSTRAINT DF_HoaDon_GiamGia DEFAULT 0,
+    ThanhTien DECIMAL(18,2) NOT NULL CONSTRAINT DF_HoaDon_ThanhTien DEFAULT 0,
+    HinhThucThanhToan NVARCHAR(50) NOT NULL CONSTRAINT DF_HoaDon_HinhThucTT DEFAULT N'Tiền mặt',
+    TrangThai NVARCHAR(30) NOT NULL CONSTRAINT DF_HoaDon_TrangThai DEFAULT N'Hoàn thành',
 
     CONSTRAINT FK_HoaDon_NhanVien 
-    FOREIGN KEY (MaNhanVien) REFERENCES NhanVien(MaNhanVien),
+        FOREIGN KEY (MaNhanVien) REFERENCES NhanVien(MaNhanVien),
 
+    CONSTRAINT FK_HoaDon_KhachHang
+        FOREIGN KEY (CCCD) REFERENCES KhachHang(CCCD),
+
+    CONSTRAINT CK_HoaDon_CCCD
+        CHECK (CCCD IS NULL OR (CCCD NOT LIKE '%[^0-9]%' AND LEN(CCCD) = 12)),
     CONSTRAINT CK_HoaDon_TongTien CHECK (TongTien >= 0),
     CONSTRAINT CK_HoaDon_GiamGia CHECK (GiamGia >= 0),
     CONSTRAINT CK_HoaDon_ThanhTien CHECK (ThanhTien >= 0)
@@ -284,11 +318,25 @@ ON LoThuoc(MaThuoc);
 CREATE INDEX IX_LoThuoc_MaKho
 ON LoThuoc(MaKho);
 
+/* PK clustered trên CCCD — tra cứu theo CCCD dùng clustered index sẵn có */
+CREATE INDEX IX_KhachHang_HoTen
+ON KhachHang(HoTen)
+INCLUDE (SoDienThoai, DiaChi, TrangThai);
+
+CREATE INDEX IX_KhachHang_SoDienThoai
+ON KhachHang(SoDienThoai)
+WHERE SoDienThoai IS NOT NULL;
+
 CREATE INDEX IX_HoaDon_NgayLap 
 ON HoaDon(NgayLap);
 
 CREATE INDEX IX_HoaDon_MaNhanVien 
 ON HoaDon(MaNhanVien);
+
+CREATE INDEX IX_HoaDon_CCCD
+ON HoaDon(CCCD)
+INCLUDE (NgayLap, ThanhTien, TrangThai)
+WHERE CCCD IS NOT NULL;
 
 CREATE INDEX IX_CTHD_MaThuoc 
 ON ChiTietHoaDon(MaThuoc);
@@ -312,9 +360,35 @@ ON ChiTietHoaDon_PhanBoLo(MaLoThuoc);
 
 CREATE INDEX IX_AuditLog_ThoiGian 
 ON AuditLog(ThoiGian);
+GO
+
+/* Hằng trạng thái phiếu nhập (NCHAR — tránh lệch encoding khi chạy script/trigger trên Windows) */
+CREATE OR ALTER FUNCTION dbo.fn_TrangThai_DangLap()
+RETURNS NVARCHAR(30) WITH SCHEMABINDING
+AS
+BEGIN
+    RETURN NCHAR(272) + NCHAR(97) + NCHAR(110) + NCHAR(103) + N' ' + NCHAR(108) + NCHAR(7853) + NCHAR(112);
+END;
+GO
+
+CREATE OR ALTER FUNCTION dbo.fn_TrangThai_DaNhapKho()
+RETURNS NVARCHAR(30) WITH SCHEMABINDING
+AS
+BEGIN
+    RETURN NCHAR(272) + NCHAR(227) + N' nh' + NCHAR(7853) + N'p kho';
+END;
+GO
+
+CREATE OR ALTER FUNCTION dbo.fn_TrangThai_Luu()
+RETURNS NVARCHAR(30) WITH SCHEMABINDING
+AS
+BEGIN
+    RETURN NCHAR(76) + NCHAR(432) + NCHAR(117);
+END;
+GO
 
 -- Procedure đăng nhập
-CREATE PROCEDURE sp_DangNhap
+CREATE OR ALTER PROCEDURE dbo.sp_DangNhap
     @TenDangNhap VARCHAR(50)
 AS
 BEGIN
@@ -334,7 +408,7 @@ END;
 GO
 
 -- Procedure nhập kho: lập phiếu (Đang lập) -> chi tiết -> xác nhận Đã nhập kho (trigger cộng LoThuoc)
-CREATE OR ALTER PROCEDURE sp_NhapKho
+CREATE OR ALTER PROCEDURE dbo.sp_NhapKho
     @MaNhanVien INT,
     @MaThuoc INT,
     @SoLuongNhap INT,
@@ -398,7 +472,7 @@ BEGIN
         SELECT @GiaBanThuoc = ISNULL(@GiaBanDong, GiaBan) FROM Thuoc WHERE MaThuoc = @MaThuoc;
 
         INSERT INTO PhieuNhap (MaNhanVien, MaNhaCungCap, MaKho, GhiChu, TrangThai)
-        VALUES (@MaNhanVien, @MaNhaCungCap, @MaKho, @GhiChu, N'Đang lập');
+        VALUES (@MaNhanVien, @MaNhaCungCap, @MaKho, @GhiChu, dbo.fn_TrangThai_DangLap());
 
         SET @MaPhieuNhap = SCOPE_IDENTITY();
 
@@ -425,7 +499,7 @@ BEGIN
 
         /* Trigger trg_NhapKho_KhiHoanTat cộng LoThuoc + đồng bộ Thuoc; trg_UpdateTongTienPhieuNhap cập nhật tổng */
         UPDATE PhieuNhap
-        SET TrangThai = N'Đã nhập kho'
+        SET TrangThai = dbo.fn_TrangThai_DaNhapKho()
         WHERE MaPhieuNhap = @MaPhieuNhap;
 
         COMMIT;
@@ -440,12 +514,11 @@ END;
 GO
 
 -- Procedure bán thuốc có transaction
-CREATE OR ALTER PROCEDURE sp_BanThuoc
+CREATE OR ALTER PROCEDURE dbo.sp_BanThuoc
     @MaNhanVien INT,
     @MaThuoc INT,
     @SoLuongBan INT,
-    @TenKhachHang NVARCHAR(100) = NULL,
-    @SoDienThoai VARCHAR(15) = NULL,
+    @CCCD CHAR(12) = NULL,
     @GiamGia DECIMAL(18,2) = 0,
     @HinhThucThanhToan NVARCHAR(50) = N'Tiền mặt'
 AS
@@ -460,6 +533,20 @@ BEGIN
 
         IF @GiamGia < 0
             THROW 51002, N'Giảm giá không hợp lệ.', 1;
+
+        SET @CCCD = NULLIF(LTRIM(RTRIM(@CCCD)), '');
+
+        IF @CCCD IS NOT NULL
+        BEGIN
+            IF @CCCD LIKE '%[^0-9]%' OR LEN(@CCCD) <> 12
+                THROW 51008, N'CCCD phải gồm đúng 12 chữ số.', 1;
+
+            IF NOT EXISTS (
+                SELECT 1 FROM dbo.KhachHang kh
+                WHERE kh.CCCD = @CCCD AND kh.TrangThai = 1
+            )
+                THROW 51007, N'CCCD chưa có trong danh mục khách hàng hoặc khách đã ngừng.', 1;
+        END
 
         DECLARE @GiaBan DECIMAL(18,2);
         DECLARE @TonLoHopLe INT;
@@ -494,8 +581,7 @@ BEGIN
 
         INSERT INTO HoaDon(
             MaNhanVien,
-            TenKhachHang,
-            SoDienThoai,
+            CCCD,
             TongTien,
             GiamGia,
             ThanhTien,
@@ -504,8 +590,7 @@ BEGIN
         )
         VALUES (
             @MaNhanVien,
-            @TenKhachHang,
-            @SoDienThoai,
+            @CCCD,
             @TongTien,
             @GiamGia,
             @ThanhTien,
@@ -548,6 +633,31 @@ BEGIN
         IF @@TRANCOUNT > 0 ROLLBACK;
         THROW;
     END CATCH
+END;
+GO
+
+/* Trigger: khi gắn CCCD trên hóa đơn, khách phải tồn tại và còn hiệu lực (bổ sung FK) */
+CREATE OR ALTER TRIGGER dbo.trg_HoaDon_KiemTraCCCD
+ON dbo.HoaDon
+AFTER INSERT, UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    IF EXISTS (
+        SELECT 1
+        FROM inserted i
+        WHERE i.CCCD IS NOT NULL
+          AND NOT EXISTS (
+                SELECT 1
+                FROM dbo.KhachHang kh
+                WHERE kh.CCCD = i.CCCD
+                  AND kh.TrangThai = 1
+          )
+    )
+    BEGIN
+        THROW 51010, N'CCCD trên hóa đơn phải tồn tại trong KhachHang và TrangThai = 1.', 1;
+    END
 END;
 GO
 
@@ -609,6 +719,20 @@ BEGIN TRY
     IF NOT EXISTS (SELECT 1 FROM dbo.NhanVien WHERE TenDangNhap = 'kho01')
         INSERT INTO dbo.NhanVien (HoTen, TenDangNhap, MatKhauHash, SoDienThoai, Email, MaVaiTro)
         SELECT N'Trần Thị B', 'kho01', '123456', '0922222222', 'kho01@pharmacy.local', MaVaiTro FROM dbo.VaiTro WHERE TenVaiTro = N'NhanVienKho';
+
+    /* 1b. Khách hàng mẫu — CCCD là PK (có thể trùng họ tên, không trùng CCCD) */
+    IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '079085001234')
+        INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi)
+        VALUES ('079085001234', N'Nguyễn Văn An', '0901000001', '1985-03-12', N'Quận 1, TP.HCM');
+    IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '079085001235')
+        INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi)
+        VALUES ('079085001235', N'Nguyễn Văn An', '0901000002', '1992-07-25', N'Quận 7, TP.HCM');
+    IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '079085001236')
+        INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi)
+        VALUES ('079085001236', N'Trần Thị Mai', '0912000003', '1978-11-08', N'Quận 3, TP.HCM');
+    IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '079085001237')
+        INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi)
+        VALUES ('079085001237', N'Lê Hoàng Nam', '0988000004', '2000-01-15', N'Quận Bình Thạnh, TP.HCM');
 
     /* 2. Danh mục thuốc Dược Quốc Gia mẫu */
     DECLARE @DQG TABLE(
@@ -684,7 +808,7 @@ BEGIN TRY
         VALUES (
             '2026-05-14T08:30:00', @MaNVKho, 'PNK-20260514-001', '2026-05-14', N'Nhập hàng nhà cung cấp', @MaKho, @MaNCC,
             N'Xe tải', N'Giao hàng nhanh', N'Lê Văn Giao', 8, 50000,
-            N'Phiếu nhập mẫu cho menu Lập phiếu nhập kho', N'Lưu'
+            N'Phiếu nhập mẫu cho menu Lập phiếu nhập kho', dbo.fn_TrangThai_Luu()
         );
         SET @PN = SCOPE_IDENTITY();
 
@@ -695,7 +819,7 @@ BEGIN TRY
         UNION ALL
         SELECT @PN, MaThuoc, 150, 500, '2028-01-10', 900, 'LO-VITC-0128', N'Kệ C1', N'Thuốc mới thêm từ Danh mục DQG', NULL FROM dbo.Thuoc WHERE TenThuoc = N'Vitamin C 500mg';
 
-        UPDATE dbo.PhieuNhap SET TrangThai = N'Đã nhập kho' WHERE MaPhieuNhap = @PN;
+        UPDATE dbo.PhieuNhap SET TrangThai = dbo.fn_TrangThai_DaNhapKho() WHERE MaPhieuNhap = @PN;
     END
 
     COMMIT TRANSACTION;
@@ -706,3 +830,81 @@ BEGIN CATCH
     THROW;
 END CATCH;
 GO
+
+USE PharmacyManagement;
+GO
+DECLARE @hs DATE = DATEADD(YEAR, 1, GETDATE());
+EXEC dbo.sp_NhapKho
+    @MaNhanVien   = 3,      -- MaNhanVien thật (vd. kho01)
+    @MaThuoc      = 1,
+    @SoLuongNhap  = 10,
+    @DonGiaNhap   = 700,
+    @HanSuDung    = @hs,
+    @NhaCungCap   = N'Công ty Dược Minh Anh',
+    @MaKho        = 1,
+    @SoLo         = N'LO-TEST-01';
+
+	DROP PROCEDURE IF EXISTS dbo.sp_NhapKho;
+GO
+
+
+
+------TEST
+USE PharmacyManagement;
+GO
+
+-- 1. Thêm thông tin khách hàng mới vào hệ thống (CCCD gồm 12 số)
+IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '012345678901')
+BEGIN
+    INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi, GhiChu)
+    VALUES ('012345678901', N'Nguyễn Văn Test', '0901234567', '1990-01-01', N'Bình Dương', N'Khách hàng test doanh thu');
+    PRINT N'Đã thêm khách hàng mới thành công.';
+END
+ELSE
+BEGIN
+    PRINT N'Khách hàng này đã tồn tại.';
+END
+GO
+
+-- 2. Tạo hóa đơn cho khách hàng vừa thêm
+-- Giả định MaNhanVien = 1 (Admin) và MaThuoc = 1 (đã có từ dữ liệu mẫu)
+DECLARE @MaHoaDon INT;
+DECLARE @MaNhanVien INT = 1;
+DECLARE @MaThuoc INT = 1;
+DECLARE @TongTien DECIMAL(18,2) = 500000;
+
+-- Insert vào bảng HoaDon với trạng thái 'Hoàn thành' để tính vào doanh thu
+INSERT INTO dbo.HoaDon (MaNhanVien, CCCD, TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai)
+VALUES (@MaNhanVien, '012345678901', @TongTien, 0, @TongTien, N'Tiền mặt', N'Hoàn thành');
+
+SET @MaHoaDon = SCOPE_IDENTITY();
+
+-- 3. Thêm chi tiết hóa đơn
+INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
+VALUES (@MaHoaDon, @MaThuoc, 5, 100000);
+
+PRINT N'Đã tạo hóa đơn test thành công. Mã HĐ: ' + CAST(@MaHoaDon AS NVARCHAR(10));
+GO
+
+-- =======================================================
+-- KIỂM TRA LẠI KẾT QUẢ
+-- =======================================================
+
+-- 4. Kiểm tra View Dashboard Tổng quan (xem số lượng hóa đơn và doanh thu hôm nay tăng lên chưa)
+SELECT 
+    SoHoaDonHomNay, 
+    DoanhThuHomNay, 
+    SoPhieuNhapHomNay
+FROM dbo.vw_DashboardTongQuan;
+
+-- 5. Xem chi tiết hóa đơn gắn với khách hàng vừa tạo
+SELECT 
+    hd.MaHoaDon,
+    hd.NgayLap,
+    kh.HoTen AS TenKhachHang,
+    kh.SoDienThoai,
+    hd.ThanhTien,
+    hd.TrangThai
+FROM dbo.HoaDon hd
+JOIN dbo.KhachHang kh ON hd.CCCD = kh.CCCD
+WHERE hd.CCCD = '012345678901';
