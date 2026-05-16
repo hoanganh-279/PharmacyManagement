@@ -67,8 +67,8 @@ public class NhanVienRepositoryDAL
     {
         const string sql = """
             INSERT INTO NhanVien(HoTen, TenDangNhap, MatKhauHash, SoDienThoai, Email, MaVaiTro, TrangThai)
-            OUTPUT INSERTED.MaNhanVien
             VALUES (@HoTen, @TenDangNhap, @MatKhauHash, @SoDienThoai, @Email, @MaVaiTro, @TrangThai);
+            SELECT CAST(SCOPE_IDENTITY() AS INT);
             """;
 
         using var cn = _db.CreateConnection();

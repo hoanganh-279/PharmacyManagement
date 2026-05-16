@@ -35,8 +35,8 @@ public partial class FrmThemTuDqg : Form
     private TextBox _txtGhiChu;
     private SplitContainer _split;
 
-    private IReadOnlyList<TraCuuDqgViewDTO> _ketQua = Array.Empty<TraCuuDqgViewDTO>();
-    private TraCuuDqgViewDTO? _chon;
+    private IReadOnlyList<TraCuuDanhMucDQGViewDTO> _ketQua = Array.Empty<TraCuuDanhMucDQGViewDTO>();
+    private TraCuuDanhMucDQGViewDTO? _chon;
     private int _chiSoChon = -1;
 
     public FrmThemTuDqg(bool khongQuanLyLoHan)
@@ -133,7 +133,7 @@ public partial class FrmThemTuDqg : Form
         _pnlDanhSach.Height = Math.Max(80, h + 8);
     }
 
-    private Panel TaoTheDqg(TraCuuDqgViewDTO d, int index)
+    private Panel TaoTheDqg(TraCuuDanhMucDQGViewDTO d, int index)
     {
         var badge = (d.SoDangKy ?? d.MaDQGDonVi ?? "").Trim();
         var card = new Panel
@@ -250,7 +250,7 @@ public partial class FrmThemTuDqg : Form
         ChonDqg(_ketQua[index]);
     }
 
-    private void ChonDqg(TraCuuDqgViewDTO? d)
+    private void ChonDqg(TraCuuDanhMucDQGViewDTO? d)
     {
         _chon = d;
         if (d is null)
@@ -323,6 +323,9 @@ public partial class FrmThemTuDqg : Form
     {
         var header = TaoHeader();
         var footer = TaoFooter();
+        // TaoFooterTongKet dùng Dock Fill (đúng khi footer nằm trong TableLayoutPanel).
+        // Trên Form cùng SplitContainer.Fill, hai Fill khiến thanh nút bị mất/che — gắn Bottom.
+        footer.Dock = DockStyle.Bottom;
 
         _split = new SplitContainer
         {

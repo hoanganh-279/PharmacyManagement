@@ -29,7 +29,8 @@ partial class FrmKeDonBanThuoc
         dtpNgaySinh = new DateTimePicker();
         chkNgaySinh = new CheckBox();
         lblKhachTrangThai = new Label();
-        splitMain = new SplitContainer();
+        pnlBody = new Panel();
+        tblMain = new TableLayoutPanel();
         pnlThuoc = new Panel();
         pnlTimThuoc = new Panel();
         lblTimThuoc = new Label();
@@ -41,6 +42,8 @@ partial class FrmKeDonBanThuoc
         numSoLuong = new NumericUpDown();
         btnThemGio = new Button();
         btnXoaDong = new Button();
+        btnInHoaDon = new Button();
+        btnXuatHoaDon = new Button();
         dgvGioHang = new DataGridView();
         pnlThanhToan = new Panel();
         lblTongHang = new Label();
@@ -55,10 +58,8 @@ partial class FrmKeDonBanThuoc
         btnLamMoi = new Button();
         lblStatus = new Label();
         pnlKhach.SuspendLayout();
-        ((System.ComponentModel.ISupportInitialize)splitMain).BeginInit();
-        splitMain.Panel1.SuspendLayout();
-        splitMain.Panel2.SuspendLayout();
-        splitMain.SuspendLayout();
+        pnlBody.SuspendLayout();
+        tblMain.SuspendLayout();
         pnlThuoc.SuspendLayout();
         ((System.ComponentModel.ISupportInitialize)dgvThuoc).BeginInit();
         pnlGioHang.SuspendLayout();
@@ -193,21 +194,25 @@ partial class FrmKeDonBanThuoc
 
         pnlKhach.Controls.Add(tblKhach);
 
-        // ── Split ──
-        splitMain.Dock = DockStyle.Fill;
-        splitMain.Orientation = Orientation.Vertical;
-        splitMain.SplitterDistance = 520;
-        splitMain.Panel2MinSize = 380;
-        splitMain.BackColor = BackColor;
-        splitMain.Panel1.Padding = new Padding(8, 4, 4, 4);
-        splitMain.Panel2.Padding = new Padding(4, 4, 8, 4);
+        // ── Nội dung dọc: tìm thuốc → kết quả → giỏ hàng ──
+        pnlBody.Dock = DockStyle.Fill;
+        pnlBody.BackColor = BackColor;
+        pnlBody.Padding = new Padding(8, 4, 8, 4);
 
-        // Thuốc
+        tblMain.Dock = DockStyle.Fill;
+        tblMain.ColumnCount = 1;
+        tblMain.RowCount = 3;
+        tblMain.BackColor = BackColor;
+        tblMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+        tblMain.RowStyles.Add(new RowStyle(SizeType.Absolute, 64F));
+        tblMain.RowStyles.Add(new RowStyle(SizeType.Percent, 48F));
+        tblMain.RowStyles.Add(new RowStyle(SizeType.Percent, 52F));
+
+        // Thuốc (chỉ lưới kết quả; thanh tìm nằm hàng riêng phía trên)
         pnlThuoc.Dock = DockStyle.Fill;
         pnlThuoc.BackColor = Color.White;
 
-        pnlTimThuoc.Dock = DockStyle.Top;
-        pnlTimThuoc.Height = 64;
+        pnlTimThuoc.Dock = DockStyle.Fill;
         pnlTimThuoc.BackColor = Color.White;
         pnlTimThuoc.Padding = new Padding(8, 4, 8, 4);
 
@@ -249,7 +254,6 @@ partial class FrmKeDonBanThuoc
         dgvThuoc.Margin = new Padding(0, 4, 0, 0);
 
         pnlThuoc.Controls.Add(dgvThuoc);
-        pnlThuoc.Controls.Add(pnlTimThuoc);
 
         // Giỏ hàng
         pnlGioHang.Dock = DockStyle.Fill;
@@ -283,7 +287,23 @@ partial class FrmKeDonBanThuoc
         btnXoaDong.Size = new Size(92, 30);
         btnXoaDong.FlatStyle = FlatStyle.Flat;
 
-        pnlGioToolbar.Controls.AddRange([numSoLuong, btnThemGio, btnXoaDong]);
+        btnInHoaDon.Text = "In hóa đơn";
+        btnInHoaDon.Location = new Point(318, 4);
+        btnInHoaDon.Size = new Size(108, 30);
+        btnInHoaDon.FlatStyle = FlatStyle.Flat;
+        btnInHoaDon.BackColor = mint;
+        btnInHoaDon.ForeColor = primary;
+        btnInHoaDon.FlatAppearance.BorderColor = primary;
+
+        btnXuatHoaDon.Text = "Xuất hóa đơn";
+        btnXuatHoaDon.Location = new Point(432, 4);
+        btnXuatHoaDon.Size = new Size(118, 30);
+        btnXuatHoaDon.FlatStyle = FlatStyle.Flat;
+        btnXuatHoaDon.BackColor = mint;
+        btnXuatHoaDon.ForeColor = primary;
+        btnXuatHoaDon.FlatAppearance.BorderColor = primary;
+
+        pnlGioToolbar.Controls.AddRange([numSoLuong, btnThemGio, btnXoaDong, btnInHoaDon, btnXuatHoaDon]);
 
         dgvGioHang.Dock = DockStyle.Fill;
         dgvGioHang.ReadOnly = true;
@@ -306,10 +326,10 @@ partial class FrmKeDonBanThuoc
             RowCount = 3,
             BackColor = mint
         };
-        tblPay.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96));
-        tblPay.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 40));
-        tblPay.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88));
-        tblPay.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 60));
+        tblPay.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92));
+        tblPay.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38));
+        tblPay.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
+        tblPay.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62));
         tblPay.RowStyles.Add(new RowStyle(SizeType.Percent, 33));
         tblPay.RowStyles.Add(new RowStyle(SizeType.Percent, 33));
         tblPay.RowStyles.Add(new RowStyle(SizeType.Percent, 34));
@@ -330,7 +350,7 @@ partial class FrmKeDonBanThuoc
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
             Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-            AutoEllipsis = true
+            AutoEllipsis = false
         };
         lblGiamGia = PayLbl("Giảm giá:");
         numGiamGia = new NumericUpDown
@@ -349,7 +369,7 @@ partial class FrmKeDonBanThuoc
             TextAlign = ContentAlignment.MiddleLeft,
             Font = new Font("Segoe UI", 12F, FontStyle.Bold),
             ForeColor = primary,
-            AutoEllipsis = true
+            AutoEllipsis = false
         };
         lblHinhThuc = PayLbl("Hình thức:");
         cboHinhThucTT = new ComboBox
@@ -398,8 +418,10 @@ partial class FrmKeDonBanThuoc
         pnlGioHang.Controls.Add(pnlGioToolbar);
         pnlGioHang.Controls.Add(lblGioHang);
 
-        splitMain.Panel1.Controls.Add(pnlThuoc);
-        splitMain.Panel2.Controls.Add(pnlGioHang);
+        tblMain.Controls.Add(pnlTimThuoc, 0, 0);
+        tblMain.Controls.Add(pnlThuoc, 0, 1);
+        tblMain.Controls.Add(pnlGioHang, 0, 2);
+        pnlBody.Controls.Add(tblMain);
 
         lblStatus.Dock = DockStyle.Bottom;
         lblStatus.Height = 24;
@@ -407,15 +429,12 @@ partial class FrmKeDonBanThuoc
         lblStatus.ForeColor = muted;
         lblStatus.Text = "Sẵn sàng";
 
-        Controls.Add(splitMain);
+        Controls.Add(pnlBody);
         Controls.Add(pnlKhach);
         Controls.Add(lblStatus);
 
         pnlKhach.ResumeLayout(false);
         pnlKhach.PerformLayout();
-        splitMain.Panel1.ResumeLayout(false);
-        splitMain.Panel2.ResumeLayout(false);
-        splitMain.ResumeLayout(false);
         pnlThuoc.ResumeLayout(false);
         pnlThuoc.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)dgvThuoc).EndInit();
@@ -425,6 +444,8 @@ partial class FrmKeDonBanThuoc
         pnlThanhToan.ResumeLayout(false);
         pnlThanhToan.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)numGiamGia).EndInit();
+        tblMain.ResumeLayout(false);
+        pnlBody.ResumeLayout(false);
         ResumeLayout(false);
     }
 
@@ -444,7 +465,8 @@ partial class FrmKeDonBanThuoc
     private DateTimePicker dtpNgaySinh;
     private CheckBox chkNgaySinh;
     private Label lblKhachTrangThai;
-    private SplitContainer splitMain;
+    private Panel pnlBody;
+    private TableLayoutPanel tblMain;
     private Panel pnlThuoc;
     private Panel pnlTimThuoc;
     private Label lblTimThuoc;
@@ -456,6 +478,8 @@ partial class FrmKeDonBanThuoc
     private NumericUpDown numSoLuong;
     private Button btnThemGio;
     private Button btnXoaDong;
+    private Button btnInHoaDon;
+    private Button btnXuatHoaDon;
     private DataGridView dgvGioHang;
     private Panel pnlThanhToan;
     private Label lblTongHang;

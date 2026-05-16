@@ -8,13 +8,13 @@ namespace Pharmacy.BLL;
 public class InventoryService
 {
     private readonly PhieuNhapRepositoryDAL _phieuNhap;
-    private readonly DanhMucDqgRepositoryDAL _dqg;
+    private readonly DanhMucDQGRepositoryDAL _dqg;
     private readonly NhomThuocRepositoryDAL _nhomThuoc;
 
     public InventoryService(DbContextDAL db)
     {
         _phieuNhap = new PhieuNhapRepositoryDAL(db);
-        _dqg = new DanhMucDqgRepositoryDAL(db);
+        _dqg = new DanhMucDQGRepositoryDAL(db);
         _nhomThuoc = new NhomThuocRepositoryDAL(db);
     }
 
@@ -91,10 +91,10 @@ public class InventoryService
         return _phieuNhap.LayChiTietPhieu(PhieuNhapSession.MaPhieuNhap.Value);
     }
 
-    public IReadOnlyList<TraCuuDqgViewDTO> TraCuuDqg(string? tuKhoa) =>
+    public IReadOnlyList<TraCuuDanhMucDQGViewDTO> TraCuuDqg(string? tuKhoa) =>
         _dqg.TraCuu(tuKhoa);
 
-    public TraCuuDqgViewDTO? LayDqg(int maDqg)
+    public DanhMucDQGDTO? LayDqg(int maDqg)
     {
         RequireKhoRole();
         return _dqg.LayTheoMa(maDqg);
@@ -153,7 +153,6 @@ public class InventoryService
         _phieuNhap.ThemChiTiet(ct);
     }
 
-<<<<<<< HEAD
     /// <summary>Thêm dòng chi tiết từ thuốc đã có trong danh mục (Workflow §4.3).</summary>
     public void ThemChiTietTuThuocCoSan(
         int maThuoc,
@@ -247,8 +246,6 @@ public class InventoryService
         _phieuNhap.CapNhatChiTiet(ct);
     }
 
-=======
->>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787
     public void XoaChiTiet(int maCtpn)
     {
         RequireKhoRole();

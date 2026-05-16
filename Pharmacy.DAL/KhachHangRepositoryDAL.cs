@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 using Microsoft.Data.SqlClient;
-=======
-﻿using Microsoft.Data.SqlClient;
->>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787
 using Pharmacy.DTO;
 using Pharmacy.DTO.Views;
 

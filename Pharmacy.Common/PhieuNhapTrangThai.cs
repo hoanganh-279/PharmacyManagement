@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 namespace Pharmacy.Common;
-=======
-﻿namespace Pharmacy.Common;
->>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787
 
 /// <summary>Trạng thái phiếu nhập — khớp fn_TrangThai_* trong CSDL.</summary>
 public static class PhieuNhapTrangThai

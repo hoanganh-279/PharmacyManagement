@@ -239,8 +239,20 @@ public partial class FrmAuditLog : Form
         /* Hàng nút Lọc / Đặt lại — cao hơn hàng ô nhập vì nút InventoryUiKit.TaoNut = 40px. */
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 52F));
 
-        _dtpTu = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 110, Anchor = AnchorStyles.Left };
-        _dtpDen = new DateTimePicker { Format = DateTimePickerFormat.Short, Width = 110, Anchor = AnchorStyles.Left };
+        _dtpTu = new DateTimePicker
+        {
+            Format = DateTimePickerFormat.Custom,
+            CustomFormat = "dd/MM/yyyy",
+            Width = 110,
+            Anchor = AnchorStyles.Left
+        };
+        _dtpDen = new DateTimePicker
+        {
+            Format = DateTimePickerFormat.Custom,
+            CustomFormat = "dd/MM/yyyy",
+            Width = 110,
+            Anchor = AnchorStyles.Left
+        };
         _cboNguoi = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Left | AnchorStyles.Right };
         _cboHanhDong = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Anchor = AnchorStyles.Left | AnchorStyles.Right };
         _txtTuKhoa = new TextBox { Anchor = AnchorStyles.Left | AnchorStyles.Right, BorderStyle = BorderStyle.FixedSingle };

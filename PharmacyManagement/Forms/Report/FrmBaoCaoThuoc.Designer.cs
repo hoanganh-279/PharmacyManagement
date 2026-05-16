@@ -1,7 +1,7 @@
-﻿#nullable disable
+#nullable disable
 namespace PharmacyManagement.Forms.Report;
 
-partial class FrmCanhBaoThuoc
+partial class FrmBaoCaoThuoc
 {
     private System.ComponentModel.IContainer components;
 
@@ -20,7 +20,7 @@ partial class FrmCanhBaoThuoc
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(1080, 720);
         MinimumSize = new Size(960, 600);
-        Text = "Cảnh báo tồn / hạn";
+        Text = "Báo cáo thuốc";
         BackColor = Color.FromArgb(245, 247, 246);
         Font = new Font("Segoe UI", 10F);
         ResumeLayout(false);

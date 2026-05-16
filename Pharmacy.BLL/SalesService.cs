@@ -1,8 +1,7 @@
 using Pharmacy.Common;
 using Pharmacy.DAL;
 using Pharmacy.DTO.Views;
-using Pharmacy.DTO.Views;
-using static Pharmacy.DTO.Views.ThuocKeDonViewDTO;
+
 namespace Pharmacy.BLL;
 
 public class SalesService

@@ -6,6 +6,7 @@ public class HoaDonDTO
     public DateTime NgayLap { get; set; }
     public int MaNhanVien { get; set; }
     public string? CCCD { get; set; }
+    public string? SoDienThoai { get; set; }
     public decimal TongTien { get; set; }
     public decimal GiamGia { get; set; }
     public decimal ThanhTien { get; set; }

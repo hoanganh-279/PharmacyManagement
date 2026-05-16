@@ -170,8 +170,8 @@ public class ReportRepositoryDAL
     public IReadOnlyList<LichSuNhapKhoViewDTO> LayLichSuNhapKho(int? top = 200)
     {
         var sql = top.HasValue
-            ? $"SELECT TOP ({top.Value}) * FROM vw_LichSuNhapKho ORDER BY NgayNhap DESC;"
-            : "SELECT * FROM vw_LichSuNhapKho ORDER BY NgayNhap DESC;";
+            ? $"SELECT TOP ({top.Value}) * FROM vw_DanhSachHangNhapKho ORDER BY NgayNhap DESC;"
+            : "SELECT * FROM vw_DanhSachHangNhapKho ORDER BY NgayNhap DESC;";
 
         var list = new List<LichSuNhapKhoViewDTO>();
         using var cn = _db.CreateConnection();
@@ -185,7 +185,7 @@ public class ReportRepositoryDAL
                 MaPhieuNhap = rd.GetInt32("MaPhieuNhap"),
                 NgayNhap = rd.GetDateTime("NgayNhap"),
                 NhanVienNhap = rd.GetString("NhanVienNhap"),
-                NhaCungCap = rd.GetNullableString("NhaCungCap"),
+                NhaCungCap = rd.GetNullableString("TenNhaCungCap"),
                 TenThuoc = rd.GetString("TenThuoc"),
                 SoLuongNhap = rd.GetInt32("SoLuongNhap"),
                 DonGiaNhap = rd.GetDecimal("DonGiaNhap"),

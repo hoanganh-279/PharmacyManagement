@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using Pharmacy.DTO;
 using Pharmacy.DTO.Views;
 
