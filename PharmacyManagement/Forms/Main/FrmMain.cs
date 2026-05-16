@@ -58,6 +58,7 @@ public partial class FrmMain : Form
     private FrmBaoCao _baoCaoHostForm;
     private FrmCanhBaoThuoc _canhBaoForm;
     private FrmBaoCaoThuoc _baoCaoThuocForm;
+    private PharmacyManagement.Forms.Admin.FrmQuanLyNhanVien _quanLyNhanVienForm;
 
     public bool ReLoginRequested { get; private set; }
 
@@ -612,6 +613,19 @@ public partial class FrmMain : Form
             return;
         }
 
+        if (key == "nv")
+        {
+            _quanLyNhanVienForm = new PharmacyManagement.Forms.Admin.FrmQuanLyNhanVien
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill
+            };
+            _contentHost.Controls.Add(_quanLyNhanVienForm);
+            _quanLyNhanVienForm.Show();
+            return;
+        }
+
         var ph = new Panel { Dock = DockStyle.Fill, BackColor = _contentHost.BackColor };
         var msg = new Label
         {
@@ -651,6 +665,7 @@ public partial class FrmMain : Form
         _baoCaoHostForm = null;
         _canhBaoForm = null;
         _baoCaoThuocForm = null;
+        _quanLyNhanVienForm = null;
     }
 
     private void BtnLogout_Click(object sender, EventArgs e)
