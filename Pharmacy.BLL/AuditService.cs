@@ -24,6 +24,38 @@ public class AuditService
         return _audit.LayBangGoc(top);
     }
 
+    public AuditLogTrangDTO TimPhanTrang(AuditLogTimKiemThamSo th)
+    {
+        BllAuthorization.RequireAnyRole(VaiTroTen.Admin, VaiTroTen.QuanLy);
+        var tong = _audit.DemTheoBoLoc(th);
+        var items = tong == 0 ? Array.Empty<AuditLogChiTietViewDTO>() : _audit.TimPhanTrang(th);
+        return new AuditLogTrangDTO { TongSoBanGhi = tong, Items = items };
+    }
+
+    public IReadOnlyList<string> LayDanhSachHanhDong()
+    {
+        BllAuthorization.RequireAnyRole(VaiTroTen.Admin, VaiTroTen.QuanLy);
+        return _audit.LayDanhSachHanhDongPhanBiet();
+    }
+
+    public IReadOnlyList<AuditLogNguoiTomTatDTO> LayNguoiTrongNhatKy()
+    {
+        BllAuthorization.RequireAnyRole(VaiTroTen.Admin, VaiTroTen.QuanLy);
+        return _audit.LayNguoiCoTrongNhatKy();
+    }
+
+    public AuditLogThongKeManHinhDTO LayThongKeManHinh(AuditLogTimKiemThamSo boLocGiongLuoi)
+    {
+        BllAuthorization.RequireAnyRole(VaiTroTen.Admin, VaiTroTen.QuanLy);
+        return _audit.LayThongKeManHinh(boLocGiongLuoi);
+    }
+
+    public IReadOnlyList<AuditLogChiTietViewDTO> LayXuatDuLieu(AuditLogTimKiemThamSo th, int gioiHan = 10_000)
+    {
+        BllAuthorization.RequireAnyRole(VaiTroTen.Admin, VaiTroTen.QuanLy);
+        return _audit.LayTheoBoLocToiDa(th, gioiHan);
+    }
+
     /// <summary>Ghi log từ ứng dụng (ví dụ đổi cấu hình) — không thay thế trigger trên SQL Server.</summary>
     public void GhiThaoTac(string hanhDong, string? tenBang = null, string? maBanGhi = null, string? noiDung = null)
     {

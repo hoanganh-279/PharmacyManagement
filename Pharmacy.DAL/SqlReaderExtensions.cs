@@ -19,6 +19,9 @@ internal static class SqlReaderExtensions
 
     public static decimal GetDecimal(this SqlDataReader r, string column) => Convert.ToDecimal(r[column], null);
 
+    public static decimal? GetNullableDecimal(this SqlDataReader r, string column) =>
+        r[column] is DBNull ? null : Convert.ToDecimal(r[column], null);
+
     public static DateTime GetDateTime(this SqlDataReader r, string column) => Convert.ToDateTime(r[column], null);
 
     public static DateTime? GetNullableDateTime(this SqlDataReader r, string column) =>

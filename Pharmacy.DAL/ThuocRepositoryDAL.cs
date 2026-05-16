@@ -19,7 +19,10 @@ public class ThuocRepositoryDAL
                 OR HoatChat LIKE N'%' + @TuKhoa + N'%'
                 OR HamLuong LIKE N'%' + @TuKhoa + N'%'
                 OR DonViTinh LIKE N'%' + @TuKhoa + N'%'
-                OR TenNhomThuoc LIKE N'%' + @TuKhoa + N'%')
+                OR TenNhomThuoc LIKE N'%' + @TuKhoa + N'%'
+                OR SoDangKy LIKE N'%' + @TuKhoa + N'%'
+                OR MaDQGDonVi LIKE N'%' + @TuKhoa + N'%'
+                OR CAST(MaThuoc AS NVARCHAR(20)) = @TuKhoa)
             ORDER BY TenThuoc;
             """;
 

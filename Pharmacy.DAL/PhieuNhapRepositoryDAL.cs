@@ -68,10 +68,10 @@ public class PhieuNhapRepositoryDAL
             INSERT INTO PhieuNhap (
                 NgayNhap, MaNhanVien, SoHoaDon, NgayHoaDon, LoaiPhieuNhap, MaKho, MaNhaCungCap,
                 PhuongTienVanChuyen, DonViVanChuyen, NguoiGiaoHang, VAT, ChietKhau, CongNo, GhiChu, TrangThai)
-            OUTPUT INSERTED.MaPhieuNhap
             VALUES (
                 @NgayNhap, @MaNhanVien, @SoHoaDon, @NgayHoaDon, @LoaiPhieuNhap, @MaKho, @MaNhaCungCap,
                 @PhuongTienVanChuyen, @DonViVanChuyen, @NguoiGiaoHang, @VAT, @ChietKhau, @CongNo, @GhiChu, @TrangThai);
+            SELECT CAST(SCOPE_IDENTITY() AS INT);
             """;
 
         using var cn = _db.CreateConnection();
@@ -116,7 +116,7 @@ public class PhieuNhapRepositoryDAL
     {
         const string sql = """
             SELECT MaPhieuNhap, MaCTPN, MaThuoc, TenThuoc, DonViTinh, SoLuongNhap, DonGiaNhap, GiaBan,
-                   ThanhTien, SoLo, HanSuDung, SoNgayConHan, TrangThaiPhieu
+                   ThanhTien, SoLo, HanSuDung, SoNgayConHan, ViTri, GhiChu, VATDongPhanTram, TrangThaiPhieu
             FROM vw_DanhSachHangNhapKho
             WHERE MaPhieuNhap = @MaPhieuNhap
             ORDER BY MaCTPN;
@@ -144,6 +144,9 @@ public class PhieuNhapRepositoryDAL
                 SoLo = rd.GetNullableString("SoLo"),
                 HanSuDung = rd.GetNullableDateTime("HanSuDung"),
                 SoNgayConHan = rd.GetNullableInt32("SoNgayConHan"),
+                ViTri = rd.GetNullableString("ViTri"),
+                GhiChu = rd.GetNullableString("GhiChu"),
+                VATDongPhanTram = rd.GetNullableDecimal("VATDongPhanTram"),
                 TrangThaiPhieu = rd.GetString("TrangThaiPhieu")
             });
         }
@@ -156,9 +159,9 @@ public class PhieuNhapRepositoryDAL
         const string sql = """
             INSERT INTO ChiTietPhieuNhap (
                 MaPhieuNhap, MaThuoc, SoLuongNhap, DonGiaNhap, HanSuDung, GiaBan, SoLo, ViTri, GhiChu, VAT)
-            OUTPUT INSERTED.MaCTPN
             VALUES (
                 @MaPhieuNhap, @MaThuoc, @SoLuongNhap, @DonGiaNhap, @HanSuDung, @GiaBan, @SoLo, @ViTri, @GhiChu, @VAT);
+            SELECT CAST(SCOPE_IDENTITY() AS INT);
             """;
 
         using var cn = _db.CreateConnection();
@@ -175,6 +178,37 @@ public class PhieuNhapRepositoryDAL
         cmd.Parameters.AddWithValue("@VAT", (object?)ct.VAT ?? DBNull.Value);
         cn.Open();
         return Convert.ToInt32(cmd.ExecuteScalar(), null);
+    }
+
+    public void CapNhatChiTiet(ChiTietPhieuNhapDTO ct)
+    {
+        const string sql = """
+            UPDATE ChiTietPhieuNhap SET
+                SoLuongNhap = @SoLuongNhap,
+                DonGiaNhap = @DonGiaNhap,
+                HanSuDung = @HanSuDung,
+                GiaBan = @GiaBan,
+                SoLo = @SoLo,
+                ViTri = @ViTri,
+                GhiChu = @GhiChu,
+                VAT = @VAT
+            WHERE MaCTPN = @MaCTPN;
+            """;
+
+        using var cn = _db.CreateConnection();
+        using var cmd = new SqlCommand(sql, cn);
+        cmd.Parameters.AddWithValue("@MaCTPN", ct.MaCTPN);
+        cmd.Parameters.AddWithValue("@SoLuongNhap", ct.SoLuongNhap);
+        cmd.Parameters.AddWithValue("@DonGiaNhap", ct.DonGiaNhap);
+        cmd.Parameters.AddWithValue("@HanSuDung", (object?)ct.HanSuDung ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@GiaBan", ct.GiaBan);
+        cmd.Parameters.AddWithValue("@SoLo", (object?)ct.SoLo ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@ViTri", (object?)ct.ViTri ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@GhiChu", (object?)ct.GhiChu ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@VAT", (object?)ct.VAT ?? DBNull.Value);
+        cn.Open();
+        if (cmd.ExecuteNonQuery() == 0)
+            throw new InvalidOperationException("Không tìm thấy dòng chi tiết phiếu nhập.");
     }
 
     public void XoaChiTiet(int maCtpn)
@@ -204,13 +238,13 @@ public class PhieuNhapRepositoryDAL
             INSERT INTO Thuoc (
                 TenThuoc, HoatChat, HamLuong, DonViTinh, GiaNhap, GiaBan, SoLuongTon, TonToiThieu,
                 MaNhomThuoc, MaDQG, SoDangKy, HangSanXuat, NuocSanXuat, DongGoi, ChoPhepLienThong, TrangThai)
-            OUTPUT INSERTED.MaThuoc
             SELECT
                 d.TenHangHoa, d.HoatChatChinh, d.HamLuong, ISNULL(d.DonViTinh, N'Viên'),
                 @GiaNhap, @GiaBan, 0, 20, @MaNhomThuoc, d.MaDQG, d.SoDangKy,
                 d.HangSanXuat, d.NuocSanXuat, d.DongGoi, @ChoPhepLienThong, 1
             FROM DanhMucDQG d
             WHERE d.MaDQG = @MaDQG;
+            SELECT CAST(SCOPE_IDENTITY() AS INT);
             """;
 
         using var cn = _db.CreateConnection();

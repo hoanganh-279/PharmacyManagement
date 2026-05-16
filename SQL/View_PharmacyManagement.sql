@@ -267,14 +267,61 @@ GROUP BY pn.MaPhieuNhap, pn.NgayNhap, pn.SoHoaDon, nv.HoTen, k.TenKho, ncc.TenNh
          pn.TongTien, pn.VAT, pn.ChietKhau, pn.CongNo, pn.TrangThai;
 GO
 
-/* vw_LichSuBanHang — Lịch sử bán: hóa đơn, nhân viên, khách, từng dòng chi tiết bán và số dòng phân bổ lô. Dùng tra cứu bán hàng và đối soát hóa đơn. */
+/* vw_HoaDon_ThongTinKhachHang — Hóa đơn kèm thông tin khách (JOIN theo CCCD). */
+CREATE OR ALTER VIEW dbo.vw_HoaDon_ThongTinKhachHang AS
+SELECT
+    hd.MaHoaDon,
+    hd.NgayLap,
+    hd.CCCD,
+    kh.HoTen,
+    kh.SoDienThoai,
+    kh.NgaySinh,
+    kh.DiaChi,
+    kh.GhiChu AS GhiChuKhach,
+    nv.HoTen AS NhanVienBan,
+    hd.TongTien,
+    hd.GiamGia,
+    hd.ThanhTien,
+    hd.HinhThucThanhToan,
+    hd.TrangThai
+FROM dbo.HoaDon hd
+LEFT JOIN dbo.KhachHang kh ON hd.CCCD = kh.CCCD
+JOIN dbo.NhanVien nv ON hd.MaNhanVien = nv.MaNhanVien;
+GO
+
+/* vw_LichSuMuaHangTheoCCCD — Toàn bộ lịch sử mua theo CCCD (chi tiết từng dòng thuốc). */
+CREATE OR ALTER VIEW dbo.vw_LichSuMuaHangTheoCCCD AS
+SELECT
+    hd.CCCD,
+    kh.HoTen,
+    kh.SoDienThoai,
+    kh.DiaChi,
+    hd.MaHoaDon,
+    hd.NgayLap,
+    hd.ThanhTien AS ThanhTienHoaDon,
+    hd.TrangThai AS TrangThaiHoaDon,
+    ct.MaCTHD,
+    t.MaThuoc,
+    t.TenThuoc,
+    ct.SoLuongBan,
+    ct.DonGiaBan,
+    ct.ThanhTien AS ThanhTienDong
+FROM dbo.HoaDon hd
+INNER JOIN dbo.KhachHang kh ON hd.CCCD = kh.CCCD
+JOIN dbo.ChiTietHoaDon ct ON hd.MaHoaDon = ct.MaHoaDon
+JOIN dbo.Thuoc t ON ct.MaThuoc = t.MaThuoc
+WHERE hd.CCCD IS NOT NULL;
+GO
+
+/* vw_LichSuBanHang — Lịch sử bán: hóa đơn, nhân viên, khách (JOIN CCCD), chi tiết dòng bán. */
 CREATE OR ALTER VIEW dbo.vw_LichSuBanHang AS
 SELECT
     hd.MaHoaDon,
     hd.NgayLap,
     nv.HoTen AS NhanVienBan,
-    hd.TenKhachHang,
-    hd.SoDienThoai,
+    hd.CCCD,
+    kh.HoTen,
+    kh.SoDienThoai,
     t.MaThuoc,
     t.TenThuoc,
     ct.MaCTHD,
@@ -287,6 +334,7 @@ SELECT
     hd.TrangThai
 FROM dbo.HoaDon hd
 JOIN dbo.NhanVien nv ON hd.MaNhanVien = nv.MaNhanVien
+LEFT JOIN dbo.KhachHang kh ON hd.CCCD = kh.CCCD
 JOIN dbo.ChiTietHoaDon ct ON hd.MaHoaDon = ct.MaHoaDon
 JOIN dbo.Thuoc t ON ct.MaThuoc = t.MaThuoc;
 GO
@@ -393,6 +441,7 @@ CREATE OR ALTER VIEW dbo.vw_AuditLogChiTiet AS
 SELECT
     al.MaLog,
     al.ThoiGian,
+    al.MaNhanVien,
     nv.HoTen AS NhanVien,
     al.HanhDong,
     al.TenBang,

@@ -153,6 +153,99 @@ public class InventoryService
         _phieuNhap.ThemChiTiet(ct);
     }
 
+    /// <summary>Thêm dòng chi tiết từ thuốc đã có trong danh mục (Workflow §4.3).</summary>
+    public void ThemChiTietTuThuocCoSan(
+        int maThuoc,
+        int soLuongNhap,
+        string soLo,
+        DateTime hanSuDung,
+        decimal? vatDong,
+        decimal donGiaNhap,
+        decimal giaBan,
+        string? viTri,
+        string? ghiChu,
+        bool khongQuanLyLoHan)
+    {
+        RequireKhoRole();
+        if (!PhieuNhapSession.MaPhieuNhap.HasValue)
+            throw new InvalidOperationException("Chưa có phiếu nhập — hãy lưu thông tin phiếu trước.");
+
+        var maPhieu = PhieuNhapSession.MaPhieuNhap.Value;
+        EnsurePhieuChuaNhapKho(_phieuNhap.LayTrangThai(maPhieu));
+
+        if (maThuoc <= 0)
+            throw new ArgumentException("Mã thuốc không hợp lệ.");
+        if (!Validator.IsPositiveInt(soLuongNhap))
+            throw new ArgumentException("Số lượng nhập phải > 0.");
+        if (!Validator.IsNonNegativeDecimal(donGiaNhap))
+            throw new ArgumentException("Giá nhập không hợp lệ.");
+        if (!Validator.IsNonNegativeDecimal(giaBan))
+            throw new ArgumentException("Giá bán không hợp lệ.");
+        if (!khongQuanLyLoHan && Validator.IsNullOrWhiteSpace(soLo))
+            throw new ArgumentException("Vui lòng nhập số lô.");
+
+        var ct = new ChiTietPhieuNhapDTO
+        {
+            MaPhieuNhap = maPhieu,
+            MaThuoc = maThuoc,
+            SoLuongNhap = soLuongNhap,
+            DonGiaNhap = donGiaNhap,
+            GiaBan = giaBan,
+            SoLo = khongQuanLyLoHan ? null : soLo.Trim(),
+            HanSuDung = khongQuanLyLoHan ? null : hanSuDung.Date,
+            ViTri = viTri,
+            GhiChu = ghiChu,
+            VAT = vatDong
+        };
+        _phieuNhap.ThemChiTiet(ct);
+    }
+
+    /// <summary>Cập nhật dòng chi tiết phiếu (chưa nhập kho).</summary>
+    public void CapNhatChiTiet(
+        int maCtpn,
+        int soLuongNhap,
+        string soLo,
+        DateTime hanSuDung,
+        decimal? vatDong,
+        decimal donGiaNhap,
+        decimal giaBan,
+        string? viTri,
+        string? ghiChu,
+        bool khongQuanLyLoHan)
+    {
+        RequireKhoRole();
+        if (!PhieuNhapSession.MaPhieuNhap.HasValue)
+            throw new InvalidOperationException("Chưa có phiếu nhập.");
+
+        var maPhieu = PhieuNhapSession.MaPhieuNhap.Value;
+        EnsurePhieuChuaNhapKho(_phieuNhap.LayTrangThai(maPhieu));
+
+        if (maCtpn <= 0)
+            throw new ArgumentException("Mã chi tiết không hợp lệ.");
+        if (!Validator.IsPositiveInt(soLuongNhap))
+            throw new ArgumentException("Số lượng nhập phải > 0.");
+        if (!Validator.IsNonNegativeDecimal(donGiaNhap))
+            throw new ArgumentException("Giá nhập không hợp lệ.");
+        if (!Validator.IsNonNegativeDecimal(giaBan))
+            throw new ArgumentException("Giá bán không hợp lệ.");
+        if (!khongQuanLyLoHan && Validator.IsNullOrWhiteSpace(soLo))
+            throw new ArgumentException("Vui lòng nhập số lô.");
+
+        var ct = new ChiTietPhieuNhapDTO
+        {
+            MaCTPN = maCtpn,
+            SoLuongNhap = soLuongNhap,
+            DonGiaNhap = donGiaNhap,
+            GiaBan = giaBan,
+            SoLo = khongQuanLyLoHan ? null : soLo.Trim(),
+            HanSuDung = khongQuanLyLoHan ? null : hanSuDung.Date,
+            ViTri = viTri,
+            GhiChu = ghiChu,
+            VAT = vatDong
+        };
+        _phieuNhap.CapNhatChiTiet(ct);
+    }
+
     public void XoaChiTiet(int maCtpn)
     {
         RequireKhoRole();

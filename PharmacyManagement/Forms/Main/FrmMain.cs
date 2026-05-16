@@ -4,6 +4,9 @@ using System.Reflection;
 using Pharmacy.BLL;
 using Pharmacy.Common;
 using Pharmacy.DAL;
+using PharmacyManagement.Forms.Admin;
+using PharmacyManagement.Forms.Inventory;
+using PharmacyManagement.Forms.Sales;
 using PharmacyManagement.Helpers;
 
 namespace PharmacyManagement.Forms.Main;
@@ -52,6 +55,11 @@ public partial class FrmMain : Form
     private Color _avatarColor = Primary;
 
     private FrmDashboard _dashboardForm;
+    private FrmKeDonBanThuoc _keDonForm;
+    private FrmQuanLyThuoc _quanLyThuocForm;
+    private FrmThongTinPhieuNhapKho _phieuNhapForm;
+    private FrmDanhSachHangNhapKho _hangNhapForm;
+    private FrmAuditLog _auditForm;
 
     public bool ReLoginRequested { get; private set; }
 
@@ -65,6 +73,7 @@ public partial class FrmMain : Form
         [
             new("kho_phieu", "Thông tin phiếu nhập kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
             new("kho_ds", "Danh sách hàng nhập kho", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
+            new("kho_thuoc", "Quản lý thuốc", [VaiTroTen.Admin, VaiTroTen.QuanLy, VaiTroTen.NhanVienKho]),
         ]),
         new("hang", "Thêm hàng hóa", [VaiTroTen.Admin, VaiTroTen.NhanVienKho], null),
         new("kedon", "Kê đơn bán thuốc", [VaiTroTen.DuocSi], null),
@@ -551,6 +560,77 @@ public partial class FrmMain : Form
             return;
         }
 
+        if (key == "kedon")
+        {
+            _keDonForm = new FrmKeDonBanThuoc
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill
+            };
+            _contentHost.Controls.Add(_keDonForm);
+            _keDonForm.Show();
+            return;
+        }
+
+        if (key == "kho_thuoc")
+        {
+            _quanLyThuocForm = new FrmQuanLyThuoc
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill,
+                MinimumSize = Size.Empty
+            };
+            _contentHost.Controls.Add(_quanLyThuocForm);
+            _quanLyThuocForm.Show();
+            return;
+        }
+
+        if (key == "kho_phieu")
+        {
+            _phieuNhapForm = new FrmThongTinPhieuNhapKho
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill,
+                MinimumSize = Size.Empty
+            };
+            _phieuNhapForm.OnShellNavigate = ShellNavigateFromChild;
+            _contentHost.Controls.Add(_phieuNhapForm);
+            _phieuNhapForm.Show();
+            return;
+        }
+
+        if (key == "kho_ds")
+        {
+            _hangNhapForm = new FrmDanhSachHangNhapKho
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill,
+                MinimumSize = Size.Empty
+            };
+            _hangNhapForm.OnShellNavigate = ShellNavigateFromChild;
+            _contentHost.Controls.Add(_hangNhapForm);
+            _hangNhapForm.Show();
+            return;
+        }
+
+        if (key == "audit")
+        {
+            _auditForm = new FrmAuditLog
+            {
+                TopLevel = false,
+                FormBorderStyle = FormBorderStyle.None,
+                Dock = DockStyle.Fill,
+                MinimumSize = Size.Empty
+            };
+            _contentHost.Controls.Add(_auditForm);
+            _auditForm.Show();
+            return;
+        }
+
         var ph = new Panel { Dock = DockStyle.Fill, BackColor = _contentHost.BackColor };
         var msg = new Label
         {
@@ -566,6 +646,8 @@ public partial class FrmMain : Form
         ph.Controls.Add(msg);
         _contentHost.Controls.Add(ph);
     }
+
+    private void ShellNavigateFromChild(string navKey) => SelectNav(navKey);
 
     private void ShellQuickNavigateFromDashboard(string navKey, string message)
     {
@@ -586,6 +668,11 @@ public partial class FrmMain : Form
             c.Dispose();
         _contentHost.Controls.Clear();
         _dashboardForm = null;
+        _keDonForm = null;
+        _quanLyThuocForm = null;
+        _phieuNhapForm = null;
+        _hangNhapForm = null;
+        _auditForm = null;
     }
 
     private void BtnLogout_Click(object sender, EventArgs e)

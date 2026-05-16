@@ -130,6 +130,7 @@ public class AuditLogChiTietViewDTO
 {
     public int MaLog { get; set; }
     public DateTime ThoiGian { get; set; }
+    public int? MaNhanVien { get; set; }
     public string? NhanVien { get; set; }
     public string HanhDong { get; set; } = string.Empty;
     public string? TenBang { get; set; }

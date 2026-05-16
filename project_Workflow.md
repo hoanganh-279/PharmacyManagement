@@ -52,14 +52,14 @@ Tài liệu này **chỉ** mô tả **luồng hoạt động** (bước nghiệp
 2. Nhập số đăng ký hoặc từ khóa tên → service tra cứu DQG → danh sách kết quả.
 3. Người dùng chọn **một** bản ghi chuẩn.
 4. Hệ thống bind hoạt chất, hàm lượng, đóng gói, hãng SX, nước SX, mã DQG… (phần sửa sau bind theo quy ước dự án).
-5. Bổ sung: nhóm hàng, SL, lô, HSD, vị trí kệ, đơn vị nhập, VAT, giá nhập, giá bán.
+5. Bổ sung: nhóm hàng, SL, lô, HSD, vị trí kệ, đơn vị nhập, VAT, giá nhập, giá bán (giá bán **tự gợi ý** khi nhập giá nhập theo `GiaBanBoYTeHelper`; có thể sửa tay).
 6. Lưu phiếu (chưa nhập kho): tạo mới `Thuoc` + `ChiTietPhieuNhap`; **chưa** cộng tồn.
 
 ### 4.3. Nhập kho — thuốc đã có
 
 1. Tìm mã/tên `Thuoc`.
 2. Hiển thị tên, đơn vị, giá bán, tồn, mã DQG (nếu có).
-3. Nhập SL, giá nhập, lô, HSD, VAT… → lưu chi tiết; chủ yếu thêm **lô mới**.
+3. Nhập SL, giá nhập (→ gợi ý giá bán BYT), lô, HSD, VAT… → lưu chi tiết; chủ yếu thêm **lô mới**.
 
 ### 4.4. Thêm hàng hóa ngoài phiếu nhập
 
@@ -145,12 +145,12 @@ Trong **một transaction**:
 
 ---
 
-## 10. Audit log (Admin)
+## 10. Audit log (Admin / Quản lý)
 
-1. Đọc qua `AuditService` / repository.
-2. Lọc theo thời gian, người dùng, loại thao tác (nhập kho, sửa giá/SL, phân quyền…).
-3. BLL từ chối nếu không phải Admin.
-
+1. Mở **Audit log** trong shell → `Forms/Admin/FrmAuditLog.cs` (nhúng trong `FrmMain`).
+2. Gọi `AuditService`: dữ liệu từ `vw_AuditLogChiTiet`; lọc tham số hóa (khoảng ngày, `MaNhanVien`, `HanhDong`, từ khóa `CHARINDEX` trên nội dung / mã bản ghi / tên bảng); phân trang `OFFSET/FETCH`.
+3. `BLL` từ chối nếu không phải **Admin** hoặc **Quản lý** (`BllAuthorization`).
+4. Xuất tra cứu: CSV UTF-8 BOM (mở bằng Excel); cập nhật view thêm `MaNhanVien` khi áp script `SQL/View_PharmacyManagement.sql`.
 ---
 
 ## 11. Ghi chú đồng bộ tài liệu
