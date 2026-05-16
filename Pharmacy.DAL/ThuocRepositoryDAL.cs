@@ -19,10 +19,14 @@ public class ThuocRepositoryDAL
                 OR HoatChat LIKE N'%' + @TuKhoa + N'%'
                 OR HamLuong LIKE N'%' + @TuKhoa + N'%'
                 OR DonViTinh LIKE N'%' + @TuKhoa + N'%'
+<<<<<<< HEAD
                 OR TenNhomThuoc LIKE N'%' + @TuKhoa + N'%'
                 OR SoDangKy LIKE N'%' + @TuKhoa + N'%'
                 OR MaDQGDonVi LIKE N'%' + @TuKhoa + N'%'
                 OR CAST(MaThuoc AS NVARCHAR(20)) = @TuKhoa)
+=======
+                OR TenNhomThuoc LIKE N'%' + @TuKhoa + N'%')
+>>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787
             ORDER BY TenThuoc;
             """;
 
@@ -30,6 +34,12 @@ public class ThuocRepositoryDAL
         using var cn = _db.CreateConnection();
         using var cmd = new SqlCommand(sql, cn);
         cmd.Parameters.AddWithValue("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? DBNull.Value : tuKhoa.Trim());
+<<<<<<< HEAD
+        cn.Open();
+        using var rd = cmd.ExecuteReader();
+        while (rd.Read())
+            list.Add(MapDanhSachThuoc(rd));
+=======
         cn.Open();
         using var rd = cmd.ExecuteReader();
         while (rd.Read())
@@ -43,6 +53,72 @@ public class ThuocRepositoryDAL
         return TimKiemTuView(null);
     }
 
+    /// <summary>Thuốc còn tồn theo lô hợp lệ (còn hạn) — dùng màn kê đơn bán.</summary>
+    public IReadOnlyList<ThuocKeDonViewDTO> TimKiemThuocKeDon(string? tuKhoa)
+    {
+        const string sql = """
+            SELECT
+                v.MaThuoc,
+                v.TenThuoc,
+                v.HoatChat,
+                v.HamLuong,
+                v.DonViTinh,
+                v.GiaBan,
+                v.HanSuDung,
+                v.TrangThai,
+                ISNULL(lo.TonLoConHan, 0) AS TonLoConHan
+            FROM vw_DanhSachThuoc v
+            OUTER APPLY (
+                SELECT SUM(lt.SoLuongTon) AS TonLoConHan
+                FROM LoThuoc lt
+                WHERE lt.MaThuoc = v.MaThuoc
+                  AND lt.SoLuongTon > 0
+                  AND lt.HanSuDung >= CAST(GETDATE() AS DATE)
+                  AND ISNULL(lt.TrangThai, 1) = 1
+            ) lo
+            WHERE v.TrangThai <> N'Ngừng bán'
+              AND ISNULL(lo.TonLoConHan, 0) > 0
+              AND (@TuKhoa IS NULL OR LTRIM(RTRIM(@TuKhoa)) = N''
+                OR v.TenThuoc LIKE N'%' + @TuKhoa + N'%'
+                OR v.HoatChat LIKE N'%' + @TuKhoa + N'%'
+                OR v.HamLuong LIKE N'%' + @TuKhoa + N'%'
+                OR v.DonViTinh LIKE N'%' + @TuKhoa + N'%')
+            ORDER BY v.TenThuoc;
+            """;
+
+        var list = new List<ThuocKeDonViewDTO>();
+        using var cn = _db.CreateConnection();
+        using var cmd = new SqlCommand(sql, cn);
+        cmd.Parameters.AddWithValue("@TuKhoa", string.IsNullOrWhiteSpace(tuKhoa) ? DBNull.Value : tuKhoa.Trim());
+        cn.Open();
+        using var rd = cmd.ExecuteReader();
+        while (rd.Read())
+        {
+            list.Add(new ThuocKeDonViewDTO
+            {
+                MaThuoc = rd.GetInt32("MaThuoc"),
+                TenThuoc = rd.GetString("TenThuoc"),
+                HoatChat = rd.GetNullableString("HoatChat"),
+                HamLuong = rd.GetNullableString("HamLuong"),
+                DonViTinh = rd.GetString("DonViTinh"),
+                GiaBan = rd.GetDecimal("GiaBan"),
+                HanSuDung = rd.GetNullableDateTime("HanSuDung"),
+                TonLoConHan = rd.GetInt32("TonLoConHan")
+            });
+        }
+>>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787
+
+        return list;
+    }
+
+<<<<<<< HEAD
+    public IReadOnlyList<DanhSachThuocViewDTO> LayTuViewDanhSach()
+    {
+        return TimKiemTuView(null);
+    }
+
+=======
+>>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787
     private static DanhSachThuocViewDTO MapDanhSachThuoc(SqlDataReader rd) => new()
     {
         MaThuoc = rd.GetInt32("MaThuoc"),

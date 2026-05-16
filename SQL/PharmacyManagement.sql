@@ -846,3 +846,68 @@ EXEC dbo.sp_NhapKho
 
 	DROP PROCEDURE IF EXISTS dbo.sp_NhapKho;
 GO
+<<<<<<< HEAD
+=======
+
+
+
+------TEST
+USE PharmacyManagement;
+GO
+
+-- 1. Thêm thông tin khách hàng mới vào hệ thống (CCCD gồm 12 số)
+IF NOT EXISTS (SELECT 1 FROM dbo.KhachHang WHERE CCCD = '012345678901')
+BEGIN
+    INSERT INTO dbo.KhachHang (CCCD, HoTen, SoDienThoai, NgaySinh, DiaChi, GhiChu)
+    VALUES ('012345678901', N'Nguyễn Văn Test', '0901234567', '1990-01-01', N'Bình Dương', N'Khách hàng test doanh thu');
+    PRINT N'Đã thêm khách hàng mới thành công.';
+END
+ELSE
+BEGIN
+    PRINT N'Khách hàng này đã tồn tại.';
+END
+GO
+
+-- 2. Tạo hóa đơn cho khách hàng vừa thêm
+-- Giả định MaNhanVien = 1 (Admin) và MaThuoc = 1 (đã có từ dữ liệu mẫu)
+DECLARE @MaHoaDon INT;
+DECLARE @MaNhanVien INT = 1;
+DECLARE @MaThuoc INT = 1;
+DECLARE @TongTien DECIMAL(18,2) = 500000;
+
+-- Insert vào bảng HoaDon với trạng thái 'Hoàn thành' để tính vào doanh thu
+INSERT INTO dbo.HoaDon (MaNhanVien, CCCD, TongTien, GiamGia, ThanhTien, HinhThucThanhToan, TrangThai)
+VALUES (@MaNhanVien, '012345678901', @TongTien, 0, @TongTien, N'Tiền mặt', N'Hoàn thành');
+
+SET @MaHoaDon = SCOPE_IDENTITY();
+
+-- 3. Thêm chi tiết hóa đơn
+INSERT INTO dbo.ChiTietHoaDon (MaHoaDon, MaThuoc, SoLuongBan, DonGiaBan)
+VALUES (@MaHoaDon, @MaThuoc, 5, 100000);
+
+PRINT N'Đã tạo hóa đơn test thành công. Mã HĐ: ' + CAST(@MaHoaDon AS NVARCHAR(10));
+GO
+
+-- =======================================================
+-- KIỂM TRA LẠI KẾT QUẢ
+-- =======================================================
+
+-- 4. Kiểm tra View Dashboard Tổng quan (xem số lượng hóa đơn và doanh thu hôm nay tăng lên chưa)
+SELECT 
+    SoHoaDonHomNay, 
+    DoanhThuHomNay, 
+    SoPhieuNhapHomNay
+FROM dbo.vw_DashboardTongQuan;
+
+-- 5. Xem chi tiết hóa đơn gắn với khách hàng vừa tạo
+SELECT 
+    hd.MaHoaDon,
+    hd.NgayLap,
+    kh.HoTen AS TenKhachHang,
+    kh.SoDienThoai,
+    hd.ThanhTien,
+    hd.TrangThai
+FROM dbo.HoaDon hd
+JOIN dbo.KhachHang kh ON hd.CCCD = kh.CCCD
+WHERE hd.CCCD = '012345678901';
+>>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787

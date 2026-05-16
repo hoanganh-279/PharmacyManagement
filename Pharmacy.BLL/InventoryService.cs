@@ -153,6 +153,7 @@ public class InventoryService
         _phieuNhap.ThemChiTiet(ct);
     }
 
+<<<<<<< HEAD
     /// <summary>Thêm dòng chi tiết từ thuốc đã có trong danh mục (Workflow §4.3).</summary>
     public void ThemChiTietTuThuocCoSan(
         int maThuoc,
@@ -246,6 +247,8 @@ public class InventoryService
         _phieuNhap.CapNhatChiTiet(ct);
     }
 
+=======
+>>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787
     public void XoaChiTiet(int maCtpn)
     {
         RequireKhoRole();

@@ -14,9 +14,12 @@ public class DanhSachHangNhapKhoViewDTO
     public string? SoLo { get; set; }
     public DateTime? HanSuDung { get; set; }
     public int? SoNgayConHan { get; set; }
+<<<<<<< HEAD
     public string? ViTri { get; set; }
     public string? GhiChu { get; set; }
     public decimal? VATDongPhanTram { get; set; }
+=======
+>>>>>>> c178570feb4e8edc1d85abcf5c1940dbf983f787
     public string TrangThaiPhieu { get; set; } = string.Empty;
 }
 
